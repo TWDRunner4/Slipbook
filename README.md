@@ -21,3 +21,4 @@ There are no accounts. Bets are saved in your own browser with `localStorage`, s
 Open `index.html` in a browser, or host the repository with GitHub Pages.
 
 Please bet responsibly. If gambling stops being fun, seek support from a gambling help service in your country.
+
