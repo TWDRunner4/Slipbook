@@ -6,6 +6,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#EEEBF5",
   "theme_color": "#5B2BC9",
   "icons": [
@@ -36,5 +37,42 @@
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "screenshots": [
+    {
+      "src": "screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home: this month at a glance"
+    },
+    {
+      "src": "screenshots/overview.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Overview: limit and profit chart"
+    },
+    {
+      "src": "screenshots/my-bets.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "My bets: settle and cash out"
+    },
+    {
+      "src": "screenshots/new-bet.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Add a bet manually or import it"
+    },
+    {
+      "src": "screenshots/overview-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Overview on a computer"
+    }
+  ]
 }
