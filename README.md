@@ -1,5 +1,8 @@
 # Slipbook
 
+<a href="https://github.com/TWDRunner4/Slipbook/raw/main/Slipbook.apk"><img src="https://img.shields.io/badge/Download%20for%20Android-5B2BC9?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android" height="44"></a>
+<a href="https://twdrunner4.github.io/Slipbook/"><img src="https://img.shields.io/badge/Open%20the%20web%20app-EEEBF5?style=for-the-badge" alt="Open the web app" height="44"></a>
+
 A simple tracker for your own bets. It does not take bets or give tips.
 
 ## Features
@@ -20,7 +23,9 @@ There are no accounts. Bets are saved in your own browser with `localStorage`, s
 
 ### Android app
 
-**[Download Slipbook.apk](https://twdrunner4.github.io/Slipbook/Slipbook.apk)**, open the file on your phone and tap **Install**. The first time, Android asks you to allow installs from your browser or Files app.
+<a href="https://github.com/TWDRunner4/Slipbook/raw/main/Slipbook.apk"><img src="https://img.shields.io/badge/Download%20for%20Android-5B2BC9?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android" height="44"></a>
+
+Tap the button on your Android phone. When the download finishes, open the file and tap **Install**. The first time, Android asks you to allow installs from your browser or Files app.
 
 ### Other ways
 
