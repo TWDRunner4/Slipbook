@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Track your bets, cash-outs and monthly limit. Your data stays on your own device.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%}</style>
+<title>Slipbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: a bettor's ledger. Season result on top, the slip and its log on the left, match data and the margin check on the right. */
+:root{
+  --bg:#E9ECF4;--surface:#F8F9FD;--ink:#1A2140;--muted:#5A6283;--line:#CBD1E2;
+  --accent:#3346D3;--accent-ink:#FFFFFF;--accent-soft:#DFE3FA;
+  --won:#0A7055;--won-soft:#D2EEE5;--lost:#B92A38;--lost-soft:#F9DEE1;--void:#5A6283;--void-soft:#E2E5EF;--warn:#8A5A00;--warn-soft:#F6E8C8;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--body:"Barlow","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11152A;--surface:#1A2040;--ink:#E7EAF6;--muted:#A3ABCB;--line:#343C63;
+  --accent:#93A1FF;--accent-ink:#11152A;--accent-soft:#2A3263;
+  --won:#55D6AE;--won-soft:#163F3C;--lost:#FF8E99;--lost-soft:#4A2130;--void:#A3ABCB;--void-soft:#2B3254;--warn:#F0C069;--warn-soft:#453719;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11152A;--surface:#1A2040;--ink:#E7EAF6;--muted:#A3ABCB;--line:#343C63;
+  --accent:#93A1FF;--accent-ink:#11152A;--accent-soft:#2A3263;
+  --won:#55D6AE;--won-soft:#163F3C;--lost:#FF8E99;--lost-soft:#4A2130;--void:#A3ABCB;--void-soft:#2B3254;--warn:#F0C069;--warn-soft:#453719;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.45 var(--body)}
+.wrap{max-width:900px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between}
+h1{font:600 32px/1 var(--display);letter-spacing:.01em;margin:0}
+h2{font:600 22px/1.1 var(--display);letter-spacing:.015em;margin:0}
+h3{font:600 13px/1.2 var(--body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0}
+.meta{color:var(--muted);font-size:13px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.notice{border-radius:6px;padding:10px 14px;background:var(--accent-soft);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.num{font-variant-numeric:tabular-nums}
+.pos{color:var(--won)}.neg{color:var(--lost)}
+
+.result{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+.net{font:600 56px/1 var(--display);margin:4px 0 8px;font-variant-numeric:tabular-nums}
+#chart{position:relative;min-height:200px;direction:ltr}
+#chart svg{display:block;width:100%;touch-action:pan-y}
+.tick{fill:var(--muted);font:400 12px var(--body);font-variant-numeric:tabular-nums}
+.tip{position:absolute;top:8px;background:var(--ink);color:var(--bg);padding:6px 10px;border-radius:4px;font-size:13px;line-height:1.3;pointer-events:none;max-width:220px;z-index:2}
+.tip b{font-weight:600}
+.chart-empty{display:grid;place-items:center;height:200px;color:var(--muted);text-align:center;padding:16px}
+.stats{display:grid;gap:12px;align-content:start}
+.stat{border-top:1px solid var(--line);padding-top:10px}
+.stat:first-child{border-top:0;padding-top:0}
+.stat strong{display:block;font:600 28px/1.1 var(--display);margin-top:2px;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:13px}
+
+.columns{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+.stack{display:grid;gap:16px;min-width:0}
+
+form{display:grid;gap:12px;margin-top:12px}
+.fields{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.f{display:grid;gap:4px;min-width:0}
+.f label{font-size:13px;color:var(--muted);font-weight:500}
+.c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}.c2{grid-column:span 2}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px 10px;width:100%;min-width:0}
+input.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.slip-foot{border-top:2px dashed var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
+.returns{display:flex;flex-wrap:wrap;gap:4px 20px}
+.returns div span{display:block;font-size:13px;color:var(--muted)}
+.returns div b{font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+button{font:500 14px var(--body);cursor:pointer;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--ink);padding:6px 10px}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;padding:10px 18px}
+.linkbtn{border:0;padding:0;color:var(--accent);text-decoration:underline;background:none}
+.status-msg{font-size:13px;min-height:18px;color:var(--muted)}
+.status-msg.err{color:var(--lost)}
+
+.head-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{padding:4px 10px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.bets{list-style:none;margin:12px 0 0;padding:0}
+.bet{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;padding:12px 0;border-top:1px solid var(--line)}
+.bet:first-child{border-top:0}
+.bet-title{font-weight:600;overflow-wrap:anywhere}
+.bet-sub{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.bet-money{text-align:end;font-variant-numeric:tabular-nums}
+.bet-money b{display:block;font:600 22px/1.1 var(--display)}
+.pill{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.03em;padding:1px 7px;border-radius:3px;vertical-align:1px}
+.pill.won{background:var(--won-soft);color:var(--won)}
+.pill.lost{background:var(--lost-soft);color:var(--lost)}
+.pill.void{background:var(--void-soft);color:var(--void)}
+.pill.open,.pill.ex,.pill.cashout{background:var(--accent-soft);color:var(--ink)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.limit{display:grid;gap:8px}
+.limit-top{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;justify-content:space-between}
+.limit-amount{font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.track{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.fill{height:100%;background:var(--accent);border-radius:4px}
+.fill.warn{background:var(--warn)}
+.fill.over{background:var(--lost)}
+.legs-box{display:grid;gap:12px}
+.leg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.legs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
+.legs li{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.legs li.is-void>span:first-child{text-decoration:line-through}
+.cash-input{width:110px}
+.limit-msg{font-size:13px}
+.limit-msg.warn{color:var(--warn)}
+.limit-msg.over{color:var(--lost)}
+.bet-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.spacer{flex:1}
+.empty{padding:20px 0 8px;color:var(--muted)}
+
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:auto}
+.partial-line{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}
+.pill.free{background:var(--warn-soft);color:var(--warn)}
+.insight-table{overflow-x:auto;margin-top:10px}
+.columns,.stack{display:contents}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-radius:0;background:none;color:var(--muted);font:500 15px var(--body);padding:10px 14px}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-current="page"]{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);font-weight:600}
+@media (max-width:640px){
+  .wrap{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-bottom:0;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
+  .tabs button{flex:1;min-width:0;padding:14px 2px;font-size:13px}
+  .tabs button[aria-current="page"]{box-shadow:inset 0 2px 0 var(--accent)}
+}
+.head-end{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.lang-pick{width:auto;padding:5px 8px;font-size:14px}
+.chart-note{direction:ltr;display:grid;gap:4px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.note-row{display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.note-row b{font-weight:600;font-variant-numeric:tabular-nums}
+.held{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}
+#chart rect[data-i],#hit{cursor:pointer}
+#drill{margin-top:10px}
+.drill-head{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.drill-title{font:600 18px/1.2 var(--display);overflow-wrap:anywhere}
+.drill-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:9px 0;border-top:1px solid var(--line)}
+.drill-money{font-weight:600;font-variant-numeric:tabular-nums;text-align:end}
+.limit-edit{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:8px;margin-top:12px}
+.margin-out{margin-top:12px}
+.margin-big{font:600 34px/1 var(--display);font-variant-numeric:tabular-nums}
+.margin-table{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th{font-weight:500;color:var(--muted);font-size:13px;text-align:end;padding:4px 0}
+td{text-align:end;padding:5px 0;border-top:1px solid var(--line)}
+th:first-child,td:first-child{text-align:start}
+
+@media (max-width:820px){
+  .result,.columns{grid-template-columns:minmax(0,1fr)}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat,.stat:first-child{border-top:1px solid var(--line);padding-top:10px}
+  .net{font-size:48px}
+}
+@media (max-width:460px){.c2{grid-column:span 3}.c2.wide-sm,.c4{grid-column:span 6}}
+@media (prefers-reduced-motion:no-preference){button{transition:border-color .12s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Slipbook</h1>
+    <div class="head-end"><span class="meta" data-i18n="Euros and decimal odds. Only you can see your bets.">Euros and decimal odds. Only you can see your bets.</span><select class="lang-pick" id="lang" aria-label="Language"></select></div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button type="button" data-go="overview" data-i18n="Overview">Overview</button>
+    <button type="button" data-go="new-bet" data-i18n="New bet">New bet</button>
+    <button type="button" data-go="my-bets" data-i18n="My bets">My bets</button>
+    <button type="button" data-go="insights" data-i18n="Insights">Insights</button>
+    <button type="button" data-go="margin" data-i18n="Margin">Margin</button>
+  </nav>
+
+  <div id="pageNotice" class="notice" hidden></div>
+
+  <section class="panel limit" data-view="overview" aria-label="Monthly limit" id="limit"></section>
+
+  <section class="panel result" data-view="overview" aria-label="Overall result">
+    <div style="min-width:0">
+      <h3 data-i18n="Net profit or loss">Net profit or loss</h3>
+      <div id="net" class="net">€0.00</div>
+      <div class="seg" id="chartView" role="group" aria-label="Choose chart" style="margin-bottom:10px">
+        <button type="button" data-c="run" aria-pressed="true" data-i18n="Running profit">Running profit</button>
+        <button type="button" data-c="cash" aria-pressed="false" data-i18n="Cash-outs">Cash-outs</button>
+        <button type="button" data-c="month" aria-pressed="false" data-i18n="Monthly profit">Monthly profit</button>
+        <button type="button" data-c="sport" aria-pressed="false" data-i18n="By sport">By sport</button>
+        <button type="button" data-c="type" aria-pressed="false" data-i18n="By bet type">By bet type</button>
+      </div>
+      <div id="chart"></div>
+      <div id="drill"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <div class="columns">
+    <div class="stack">
+      <section class="panel" data-view="new-bet" aria-labelledby="slipTitle">
+        <div class="head-row">
+          <h2 id="slipTitle">New bet</h2>
+          <div class="seg" id="kind" role="group" aria-label="Bet type">
+            <button type="button" data-k="single" aria-pressed="true" data-i18n="Single">Single</button>
+            <button type="button" data-k="multi" aria-pressed="false" data-i18n="Multi">Multi</button>
+          </div>
+        </div>
+        <form id="betForm" novalidate>
+          <div class="fields">
+            <div class="c6 legs-box" id="legsBox" hidden><div class="legs-box" id="legs"></div><div><button type="button" id="addLeg" data-i18n="Add leg">Add leg</button></div></div>
+            <div class="f c6 single-only"><label for="event" data-i18n="Match">Match</label><input id="event" autocomplete="off" placeholder="Nice v Paris Saint-Germain" required></div>
+            <div class="f c6 single-only"><label for="pick" data-i18n="Your selection">Your selection</label><input id="pick" autocomplete="off" placeholder="PSG to win" required></div>
+            <div class="f c2 single-only"><label for="odds" data-i18n="Odds">Odds</label><input id="odds" class="num" type="number" inputmode="decimal" step="0.01" min="1.01" placeholder="1.50" required></div>
+            <div class="f c2"><label for="stake"><span data-i18n="Stake">Stake</span> (€)</label><input id="stake" class="num" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="10" required></div>
+            <div class="f c2 wide-sm"><label for="placed" data-i18n="Date">Date</label><input id="placed" class="num" type="date" required></div>
+            <div class="f c3"><label for="book"><span data-i18n="Bookmaker">Bookmaker</span></label><input id="book" autocomplete="off"></div>
+            <div class="f c3"><label for="sport" data-i18n="Sport">Sport</label><select id="sport"><option value="" data-i18n="Choose">Choose</option><option value="Football" data-i18n="Football">Football</option><option value="Basketball" data-i18n="Basketball">Basketball</option><option value="Tennis" data-i18n="Tennis">Tennis</option><option value="Other" data-i18n="Other">Other</option></select></div>
+            <label class="check c6" for="free"><input type="checkbox" id="free"> <span data-i18n="This is a free bet">This is a free bet</span></label>
+          </div>
+          <div class="slip-foot">
+            <div class="returns">
+              <div id="prevOddsWrap" hidden><span data-i18n="Total odds">Total odds</span><b id="prevOdds">–</b></div>
+              <div><span data-i18n="Implied probability">Implied probability</span><b id="prevProb">–</b></div>
+              <div><span data-i18n="Returns if it wins">Returns if it wins</span><b id="prevRet">–</b></div>
+            </div>
+            <div class="seg"><button type="button" id="cancelEdit" hidden data-i18n="Cancel">Cancel</button><button class="primary" type="submit" id="saveBet">Save bet</button></div>
+          </div>
+          <div id="limitMsg" class="limit-msg" role="status" hidden></div>
+          <div id="formMsg" class="status-msg" role="status"></div>
+        </form>
+      </section>
+
+      <section class="panel" data-view="my-bets" aria-labelledby="logTitle">
+        <div class="head-row">
+          <h2 id="logTitle" data-i18n="Your bets">Your bets</h2>
+          <div class="seg" id="betFilter" role="group" aria-label="Filter bets">
+            <button type="button" data-f="all" aria-pressed="true" data-i18n="All">All</button>
+            <button type="button" data-f="open" aria-pressed="false" data-i18n="Open">Open</button>
+            <button type="button" data-f="settled" aria-pressed="false" data-i18n="Settled">Settled</button>
+          </div>
+        </div>
+        <ul class="bets" id="bets"></ul>
+        <div class="head-row" style="margin-top:12px"><button type="button" id="exportBtn" hidden data-i18n="Download spreadsheet">Download spreadsheet</button><span class="meta" id="exportMsg" role="status"></span></div>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="panel" data-view="margin" aria-labelledby="marginTitle">
+        <div class="head-row">
+          <h2 id="marginTitle" data-i18n="Bookmaker margin">Bookmaker margin</h2>
+          <div class="seg" id="way" role="group" aria-label="Number of outcomes">
+            <button type="button" data-w="3" aria-pressed="true" data-i18n="Win / draw / win">Win / draw / win</button>
+            <button type="button" data-w="2" aria-pressed="false" data-i18n="Two outcomes">Two outcomes</button>
+          </div>
+        </div>
+        <div class="calc" id="calcInputs"></div>
+        <div class="margin-out" id="marginOut" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" data-view="insights" aria-labelledby="bdTitle">
+        <div class="head-row">
+          <h2 id="bdTitle" data-i18n="Where you win and lose">Where you win and lose</h2>
+          <div class="seg" id="bdBy" role="group" aria-label="Group results by">
+            <button type="button" data-b="sport" aria-pressed="true" data-i18n="Sport">Sport</button>
+            <button type="button" data-b="type" aria-pressed="false" data-i18n="Bet type">Bet type</button>
+            <button type="button" data-b="book" aria-pressed="false" data-i18n="Bookmaker">Bookmaker</button>
+          </div>
+        </div>
+        <div class="insight-table" id="breakdown"></div>
+      </section>
+
+      <section class="panel" data-view="insights" aria-labelledby="monthsTitle">
+        <h2 id="monthsTitle" data-i18n="Month by month">Month by month</h2>
+        <div class="insight-table" id="months"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const S={bets:[],filter:'all',uid:null,col:null,confirm:null,busy:new Set(),way:3,ready:false,kind:'single',legs:[],cashing:null,partial:null,editing:null,bd:'sport',dl:null,chart:'run',drill:null,drillF:'all'};
+  try{const c=localStorage.getItem('slipbook-chart');if(['run','cash','month','sport','type'].includes(c))S.chart=c;}catch(e){}
+  const I18N={"keys":["Euros and decimal odds. Only you can see your bets.","Overview","New bet","My bets","Insights","Margin","Net profit or loss","Running profit","Stakes vs limit","Monthly profit","By sport","By bet type","Single","Multi","Add leg","Match","Your selection","Odds","Stake","Date","Bookmaker","Sport","Choose","Football","Basketball","Tennis","Other","This is a free bet","Total odds","Implied probability","Returns if it wins","Cancel","Save bet","Your bets","All","Open","Settled","Download spreadsheet","Bookmaker margin","Win / draw / win","Two outcomes","Where you win and lose","Bet type","Month by month","Settle a bet to see this.","Break-even","Return on stakes","Staked","Win rate","Won","Lost","Cashed out","At risk","Your stakes appear here once you log a bet. Free bets are not counted.","Your profit line starts once two bets are settled.","Over limit","Limit","Bets","Start","Bet","Bets marked Example are sample data and count in these totals and your limit.","Remove examples","Loading your bets…","No bets in this view.","No bets yet. Add one under New bet.","Implied","Returns","Received","Delete this bet?","Delete","Keep","Save","Amount you got back","Void","Cash out","Partial cash-out","Edit","Reopen","Example","Free bet","Undo last","Not set","Profit","Return","Month","Bets are counted in the month you placed them. Open bets count once they settle.","Edit bet","Save changes","Change the details, then press Save changes.","Void leg","Undo void","Left","Nearly at limit","Within limit","Leg","Remove","Home","Draw","Away","Side A","Side B","Enter decimal odds above 1 for every outcome.","Total","Anything over 100% is the bookmaker’s built-in edge.","Outcome","Without margin","Fair odds","This bet would put you over your limit by","Left of your limit after this bet","Fill in the match and selection.","Odds must be above 1, for example 1.85.","Stake must be more than zero.","Choose a date.","Stake must be more than the part already cashed out.","Enter valid amounts.","Bet saved.","Spreadsheet saved.","Download cancelled.","No bets of your own to save yet.","Cash-outs","With cashing out","If you hadn’t cashed out","If you had kept it","Bets without a kept-it result are not counted:","Cash-outs appear here once you cash out a bet.","Change","Difference from cashing out","Compared with keeping the bets","Average per cash-out","Missing results","Best month","Worst month","Average per month","This month","Best","Worst","Highest return","Most bets","Press the chart to see the bets behind it.","Close","Euros and decimal odds. Your bets are saved on this device only.","Change limit","Monthly limit"],"langs":[["en","English","en-GB"],["zh","中文","zh-CN"],["hi","हिन्दी","hi-IN"],["es","Español","es-ES"],["ar","العربية","ar"],["fr","Français","fr-FR"],["bn","বাংলা","bn-BD"],["pt","Português","pt-PT"],["ru","Русский","ru-RU"],["ur","اردو","ur-PK"],["ro","Română","ro-RO"],["nl","Nederlands","nl-NL"]],"t":{"zh":["欧元和小数赔率。只有你能看到你的投注。","总览","新投注","我的投注","分析","利润率","净盈亏","累计盈亏","投注额与限额","每月盈亏","按运动","按投注类型","单注","串关","添加一场","比赛","你的选择","赔率","投注额","日期","博彩公司","运动","请选择","足球","篮球","网球","其他","这是免费投注","总赔率","隐含概率","获胜可得","取消","保存投注","你的投注","全部","未结算","已结算","下载表格","博彩公司利润率","主胜 / 平局 / 客胜","两种结果","盈亏分布","投注类型","按月统计","结算一笔投注后即可查看。","保本胜率","投注回报率","投注额","胜率","赢","输","已提前结算","风险金额","记录投注后，投注额会显示在这里。免费投注不计入。","结算两笔投注后，盈亏曲线才会显示。","超出限额","限额","投注数","开始","投注","标记为“示例”的投注是样本数据，会计入这些总数和你的限额。","删除示例","正在加载你的投注…","此视图中没有投注。","还没有投注。请在“新投注”中添加。","隐含","可得","已收到","删除这笔投注？","删除","保留","保存","你拿回的金额","作废","提前结算","部分提前结算","编辑","重新打开","示例","免费投注","撤销上一次","未设置","盈亏","回报率","月份","投注按下注月份统计。未结算的投注在结算后计入。","编辑投注","保存更改","修改详情，然后点击“保存更改”。","作废此场","撤销作废","剩余","接近限额","未超限额","场次","移除","主队","平局","客队","A 方","B 方","请为每个结果输入大于 1 的小数赔率。","合计","超过 100% 的部分就是博彩公司的内置优势。","结果","去除利润率","公平赔率","这笔投注将使你超出限额","这笔投注后的剩余限额","请填写比赛和选择。","赔率必须大于 1，例如 1.85。","投注额必须大于零。","请选择日期。","投注额必须大于已提前结算的部分。","请输入有效金额。","投注已保存。","表格已保存。","下载已取消。","还没有你自己的投注可保存。","提前结算次数","提前结算的结果","如果没有提前结算","如果继续持有","未填写持有结果的投注不计入：","提前结算后会显示在这里。","更改","提前结算差额","与继续持有相比","每次提前结算平均","缺少结果","最佳月份","最差月份","每月平均","本月","最佳","最差","最高回报率","投注最多","点击图表查看对应的投注。","关闭","欧元和小数赔率。你的投注只保存在此设备上。","更改限额","每月限额"],"hi":["यूरो और दशमलव ऑड्स। आपके दांव सिर्फ़ आप देख सकते हैं।","सारांश","नया दांव","मेरे दांव","विश्लेषण","मार्जिन","शुद्ध लाभ या हानि","कुल लाभ","दांव बनाम सीमा","मासिक लाभ","खेल के अनुसार","दांव के प्रकार के अनुसार","सिंगल","मल्टी","लेग जोड़ें","मैच","आपका चयन","ऑड्स","दांव राशि","तारीख़","बुकमेकर","खेल","चुनें","फ़ुटबॉल","बास्केटबॉल","टेनिस","अन्य","यह एक मुफ़्त दांव है","कुल ऑड्स","अनुमानित संभावना","जीतने पर वापसी","रद्द करें","दांव सहेजें","आपके दांव","सभी","खुले","निपटे हुए","स्प्रेडशीट डाउनलोड करें","बुकमेकर मार्जिन","जीत / ड्रॉ / जीत","दो परिणाम","आप कहाँ जीतते और हारते हैं","दांव का प्रकार","महीने दर महीने","इसे देखने के लिए कोई दांव निपटाएँ।","ब्रेक-ईवन","दांव पर रिटर्न","लगाई राशि","जीत दर","जीते","हारे","कैश आउट किया","जोखिम में","दांव दर्ज करने पर आपकी राशि यहाँ दिखेगी। मुफ़्त दांव नहीं गिने जाते।","दो दांव निपटने पर लाभ की रेखा शुरू होगी।","सीमा से ऊपर","सीमा","दांव","शुरुआत","दांव","उदाहरण चिह्नित दांव नमूना डेटा हैं और इन योगों व आपकी सीमा में गिने जाते हैं।","उदाहरण हटाएँ","आपके दांव लोड हो रहे हैं…","इस दृश्य में कोई दांव नहीं है।","अभी कोई दांव नहीं। ‘नया दांव’ में जोड़ें।","अनुमानित","वापसी","प्राप्त","यह दांव हटाएँ?","हटाएँ","रखें","सहेजें","आपको वापस मिली राशि","रद्द दांव","कैश आउट","आंशिक कैश-आउट","संपादित करें","फिर से खोलें","उदाहरण","मुफ़्त दांव","पिछला पूर्ववत करें","तय नहीं","लाभ","रिटर्न","महीना","दांव उसी महीने में गिने जाते हैं जब लगाए गए। खुले दांव निपटने पर गिने जाते हैं।","दांव संपादित करें","बदलाव सहेजें","विवरण बदलें, फिर ‘बदलाव सहेजें’ दबाएँ।","लेग रद्द करें","रद्द वापस लें","शेष","सीमा के क़रीब","सीमा के भीतर","लेग","हटाएँ","घरेलू","ड्रॉ","मेहमान","पक्ष A","पक्ष B","हर परिणाम के लिए 1 से ऊपर दशमलव ऑड्स दर्ज करें।","कुल","100% से ऊपर जो भी है वह बुकमेकर का अंतर्निहित लाभ है।","परिणाम","मार्जिन के बिना","उचित ऑड्स","यह दांव आपको सीमा से इतना ऊपर ले जाएगा","इस दांव के बाद बची सीमा","मैच और चयन भरें।","ऑड्स 1 से ऊपर होने चाहिए, जैसे 1.85।","दांव राशि शून्य से अधिक होनी चाहिए।","तारीख़ चुनें।","दांव राशि कैश आउट किए गए हिस्से से अधिक होनी चाहिए।","सही राशि दर्ज करें।","दांव सहेजा गया।","स्प्रेडशीट सहेजी गई।","डाउनलोड रद्द किया गया।","सहेजने के लिए अभी आपका कोई दांव नहीं है।","कैश-आउट","कैश आउट करके","अगर कैश आउट न करते","अगर दांव रखते","जिन दांवों का परिणाम नहीं भरा, वे नहीं गिने गए:","कैश आउट करने पर यहाँ दिखेगा।","बदलें","कैश आउट से अंतर","दांव रखने की तुलना में","प्रति कैश-आउट औसत","परिणाम बाकी","सबसे अच्छा महीना","सबसे ख़राब महीना","प्रति माह औसत","इस महीने","सबसे अच्छा","सबसे ख़राब","सबसे अधिक रिटर्न","सबसे ज़्यादा दांव","इसके पीछे के दांव देखने के लिए चार्ट दबाएँ।","बंद करें","यूरो और दशमलव ऑड्स। आपके दांव सिर्फ़ इसी डिवाइस पर सहेजे जाते हैं।","सीमा बदलें","मासिक सीमा"],"es":["Euros y cuotas decimales. Solo tú puedes ver tus apuestas.","Resumen","Nueva apuesta","Mis apuestas","Análisis","Margen","Beneficio o pérdida neta","Beneficio acumulado","Apostado vs. límite","Beneficio mensual","Por deporte","Por tipo de apuesta","Simple","Combinada","Añadir selección","Partido","Tu selección","Cuota","Importe","Fecha","Casa de apuestas","Deporte","Elegir","Fútbol","Baloncesto","Tenis","Otro","Es una apuesta gratis","Cuota total","Probabilidad implícita","Ganancia si acierta","Cancelar","Guardar apuesta","Tus apuestas","Todas","Abiertas","Liquidadas","Descargar hoja de cálculo","Margen de la casa","Local / empate / visitante","Dos resultados","Dónde ganas y pierdes","Tipo de apuesta","Mes a mes","Liquida una apuesta para ver esto.","Punto de equilibrio","Rentabilidad","Apostado","Porcentaje de aciertos","Ganadas","Perdidas","Cobradas antes","En riesgo","Lo apostado aparecerá aquí cuando registres una apuesta. Las apuestas gratis no cuentan.","La línea de beneficio empieza cuando haya dos apuestas liquidadas.","Límite superado","Límite","Apuestas","Inicio","Apuesta","Las apuestas marcadas como Ejemplo son datos de muestra y cuentan en estos totales y en tu límite.","Eliminar ejemplos","Cargando tus apuestas…","No hay apuestas en esta vista.","Aún no hay apuestas. Añade una en Nueva apuesta.","Implícita","Devuelve","Recibido","¿Eliminar esta apuesta?","Eliminar","Conservar","Guardar","Importe que recuperaste","Anulada","Cobrar antes","Cobro parcial","Editar","Reabrir","Ejemplo","Apuesta gratis","Deshacer último","Sin indicar","Beneficio","Rentabilidad","Mes","Las apuestas cuentan en el mes en que se hicieron. Las abiertas cuentan al liquidarse.","Editar apuesta","Guardar cambios","Cambia los datos y pulsa Guardar cambios.","Anular selección","Deshacer anulación","Disponible","Cerca del límite","Dentro del límite","Selección","Quitar","Local","Empate","Visitante","Lado A","Lado B","Introduce cuotas decimales mayores que 1 para cada resultado.","Total","Todo lo que supera el 100 % es el margen de la casa.","Resultado","Sin margen","Cuota justa","Esta apuesta superaría tu límite en","Te quedaría de límite tras esta apuesta","Rellena el partido y la selección.","La cuota debe ser mayor que 1, por ejemplo 1,85.","El importe debe ser mayor que cero.","Elige una fecha.","El importe debe ser mayor que la parte ya cobrada.","Introduce importes válidos.","Apuesta guardada.","Hoja de cálculo guardada.","Descarga cancelada.","Todavía no tienes apuestas propias que guardar.","Cobros anticipados","Cobrando antes","Si no hubieras cobrado","Si la hubieras mantenido","No se cuentan las apuestas sin ese resultado:","Aparecerán aquí cuando cobres una apuesta antes.","Cambiar","Diferencia por cobrar antes","Comparado con mantener las apuestas","Media por cobro","Resultados pendientes","Mejor mes","Peor mes","Media mensual","Este mes","Mejor","Peor","Mayor rentabilidad","Más apuestas","Pulsa el gráfico para ver las apuestas.","Cerrar","Euros y cuotas decimales. Tus apuestas se guardan solo en este dispositivo.","Cambiar límite","Límite mensual"],"ar":["اليورو والاحتمالات العشرية. أنت وحدك من يرى رهاناتك.","نظرة عامة","رهان جديد","رهاناتي","التحليلات","الهامش","صافي الربح أو الخسارة","الربح التراكمي","المبالغ مقابل الحد","الربح الشهري","حسب الرياضة","حسب نوع الرهان","فردي","متعدد","إضافة مباراة","المباراة","اختيارك","الاحتمالات","المبلغ","التاريخ","شركة المراهنات","الرياضة","اختر","كرة القدم","كرة السلة","التنس","أخرى","هذا رهان مجاني","إجمالي الاحتمالات","الاحتمال الضمني","العائد عند الفوز","إلغاء","حفظ الرهان","رهاناتك","الكل","مفتوحة","منتهية","تنزيل جدول البيانات","هامش شركة المراهنات","فوز / تعادل / فوز","نتيجتان","أين تربح وتخسر","نوع الرهان","شهرًا بشهر","قم بتسوية رهان لرؤية هذا.","نقطة التعادل","العائد على المبالغ","المبلغ المراهن","نسبة الفوز","ربح","خسر","تم سحبه مبكرًا","معرّض للخطر","ستظهر مبالغك هنا بعد تسجيل رهان. لا تُحتسب الرهانات المجانية.","يبدأ خط الربح بعد تسوية رهانين.","تجاوز الحد","الحد","الرهانات","البداية","رهان","الرهانات المعلّمة بكلمة مثال بيانات تجريبية وتُحتسب في هذه الإجماليات وفي حدّك.","إزالة الأمثلة","جارٍ تحميل رهاناتك…","لا توجد رهانات في هذا العرض.","لا توجد رهانات بعد. أضف رهانًا من «رهان جديد».","ضمني","العائد","المستلم","هل تريد حذف هذا الرهان؟","حذف","إبقاء","حفظ","المبلغ الذي استرددته","ملغى","سحب مبكر","سحب جزئي","تعديل","إعادة فتح","مثال","رهان مجاني","تراجع عن الأخير","غير محدد","الربح","العائد","الشهر","تُحتسب الرهانات في الشهر الذي وُضعت فيه. وتُحتسب المفتوحة عند تسويتها.","تعديل الرهان","حفظ التغييرات","غيّر التفاصيل ثم اضغط حفظ التغييرات.","إلغاء المباراة","التراجع عن الإلغاء","المتبقي","قريب من الحد","ضمن الحد","مباراة","إزالة","المضيف","تعادل","الضيف","الطرف أ","الطرف ب","أدخل احتمالات عشرية أكبر من 1 لكل نتيجة.","الإجمالي","كل ما يزيد على 100% هو الميزة المدمجة لشركة المراهنات.","النتيجة","بدون هامش","الاحتمالات العادلة","سيجعلك هذا الرهان تتجاوز حدّك بمقدار","المتبقي من حدّك بعد هذا الرهان","أدخل المباراة والاختيار.","يجب أن تكون الاحتمالات أكبر من 1، مثل 1.85.","يجب أن يكون المبلغ أكبر من صفر.","اختر تاريخًا.","يجب أن يكون المبلغ أكبر من الجزء الذي تم سحبه.","أدخل مبالغ صحيحة.","تم حفظ الرهان.","تم حفظ جدول البيانات.","تم إلغاء التنزيل.","لا توجد رهانات خاصة بك لحفظها بعد.","السحب المبكر","مع السحب المبكر","لو لم تسحب مبكرًا","لو أبقيت الرهان","لا تُحتسب الرهانات بدون هذه النتيجة:","تظهر هنا بعد سحب رهان مبكرًا.","تغيير","فرق السحب المبكر","مقارنة بالإبقاء على الرهانات","المتوسط لكل سحب","نتائج ناقصة","أفضل شهر","أسوأ شهر","المتوسط الشهري","هذا الشهر","الأفضل","الأسوأ","أعلى عائد","أكثر الرهانات","اضغط على الرسم البياني لرؤية الرهانات.","إغلاق","اليورو والاحتمالات العشرية. تُحفظ رهاناتك على هذا الجهاز فقط.","تغيير الحد","الحد الشهري"],"fr":["Euros et cotes décimales. Vous seul voyez vos paris.","Aperçu","Nouveau pari","Mes paris","Analyses","Marge","Gain ou perte net","Gain cumulé","Mises vs limite","Gain mensuel","Par sport","Par type de pari","Simple","Combiné","Ajouter une sélection","Match","Votre sélection","Cote","Mise","Date","Bookmaker","Sport","Choisir","Football","Basketball","Tennis","Autre","C’est un pari gratuit","Cote totale","Probabilité implicite","Retour en cas de gain","Annuler","Enregistrer le pari","Vos paris","Tous","En cours","Réglés","Télécharger le tableur","Marge du bookmaker","Domicile / nul / extérieur","Deux issues","Où vous gagnez et perdez","Type de pari","Mois par mois","Réglez un pari pour voir ceci.","Seuil de rentabilité","Rendement des mises","Misé","Taux de réussite","Gagné","Perdu","Encaissé","À risque","Vos mises apparaîtront ici dès que vous enregistrez un pari. Les paris gratuits ne comptent pas.","La courbe de gain commence dès que deux paris sont réglés.","Limite dépassée","Limite","Paris","Début","Pari","Les paris marqués Exemple sont des données fictives et comptent dans ces totaux et votre limite.","Supprimer les exemples","Chargement de vos paris…","Aucun pari dans cette vue.","Aucun pari pour l’instant. Ajoutez-en un dans Nouveau pari.","Implicite","Retour","Reçu","Supprimer ce pari ?","Supprimer","Conserver","Enregistrer","Montant récupéré","Annulé","Encaisser","Encaissement partiel","Modifier","Rouvrir","Exemple","Pari gratuit","Annuler le dernier","Non renseigné","Gain","Rendement","Mois","Les paris comptent dans le mois où ils ont été placés. Ceux en cours comptent une fois réglés.","Modifier le pari","Enregistrer les modifications","Modifiez les détails, puis appuyez sur Enregistrer les modifications.","Annuler la sélection","Rétablir la sélection","Restant","Limite presque atteinte","Dans la limite","Sélection","Retirer","Domicile","Nul","Extérieur","Côté A","Côté B","Saisissez des cotes décimales supérieures à 1 pour chaque issue.","Total","Tout ce qui dépasse 100 % est la marge intégrée du bookmaker.","Issue","Sans marge","Cote juste","Ce pari vous ferait dépasser votre limite de","Restant sur votre limite après ce pari","Renseignez le match et la sélection.","La cote doit être supérieure à 1, par exemple 1,85.","La mise doit être supérieure à zéro.","Choisissez une date.","La mise doit dépasser la part déjà encaissée.","Saisissez des montants valides.","Pari enregistré.","Tableur enregistré.","Téléchargement annulé.","Vous n’avez pas encore de paris à enregistrer.","Encaissements","Avec encaissement","Sans encaissement","Si vous l’aviez gardé","Paris sans ce résultat non comptés :","Ils apparaîtront ici après un encaissement.","Changer","Écart dû aux encaissements","Par rapport au fait de garder les paris","Moyenne par encaissement","Résultats manquants","Meilleur mois","Pire mois","Moyenne par mois","Ce mois-ci","Meilleur","Pire","Meilleur rendement","Le plus de paris","Appuyez sur le graphique pour voir les paris.","Fermer","Euros et cotes décimales. Vos paris sont enregistrés sur cet appareil uniquement.","Changer la limite","Limite mensuelle"],"bn":["ইউরো ও দশমিক অডস। আপনার বাজি শুধু আপনিই দেখতে পাবেন।","সারসংক্ষেপ","নতুন বাজি","আমার বাজি","বিশ্লেষণ","মার্জিন","নিট লাভ বা ক্ষতি","মোট লাভের ধারা","বাজি বনাম সীমা","মাসিক লাভ","খেলা অনুযায়ী","বাজির ধরন অনুযায়ী","একক","মাল্টি","লেগ যোগ করুন","ম্যাচ","আপনার বাছাই","অডস","বাজির পরিমাণ","তারিখ","বুকমেকার","খেলা","বেছে নিন","ফুটবল","বাস্কেটবল","টেনিস","অন্যান্য","এটি একটি ফ্রি বাজি","মোট অডস","আনুমানিক সম্ভাবনা","জিতলে ফেরত","বাতিল","বাজি সংরক্ষণ করুন","আপনার বাজি","সব","খোলা","নিষ্পন্ন","স্প্রেডশিট ডাউনলোড করুন","বুকমেকারের মার্জিন","জয় / ড্র / জয়","দুটি ফলাফল","আপনি কোথায় জেতেন ও হারেন","বাজির ধরন","মাস অনুযায়ী","এটি দেখতে একটি বাজি নিষ্পন্ন করুন।","ব্রেক-ইভেন","বাজিতে রিটার্ন","মোট বাজি","জয়ের হার","জিতেছে","হেরেছে","ক্যাশ আউট","ঝুঁকিতে","বাজি যোগ করলে আপনার পরিমাণ এখানে দেখাবে। ফ্রি বাজি গণনা হয় না।","দুটি বাজি নিষ্পন্ন হলে লাভের রেখা শুরু হবে।","সীমা ছাড়িয়েছে","সীমা","বাজি","শুরু","বাজি","উদাহরণ চিহ্নিত বাজিগুলি নমুনা তথ্য এবং এই মোট ও আপনার সীমায় গণনা হয়।","উদাহরণ সরান","আপনার বাজি লোড হচ্ছে…","এই ভিউতে কোনো বাজি নেই।","এখনও কোনো বাজি নেই। ‘নতুন বাজি’ থেকে যোগ করুন।","আনুমানিক","ফেরত","প্রাপ্ত","এই বাজি মুছবেন?","মুছুন","রাখুন","সংরক্ষণ","আপনি যা ফেরত পেয়েছেন","বাতিল বাজি","ক্যাশ আউট করুন","আংশিক ক্যাশ-আউট","সম্পাদনা","আবার খুলুন","উদাহরণ","ফ্রি বাজি","শেষটি ফেরান","নির্ধারিত নয়","লাভ","রিটার্ন","মাস","বাজি যে মাসে ধরা হয়েছে সেই মাসে গণনা হয়। খোলা বাজি নিষ্পন্ন হলে গণনা হয়।","বাজি সম্পাদনা","পরিবর্তন সংরক্ষণ করুন","তথ্য বদলে ‘পরিবর্তন সংরক্ষণ করুন’ চাপুন।","লেগ বাতিল","বাতিল ফেরান","বাকি","সীমার কাছাকাছি","সীমার মধ্যে","লেগ","সরান","স্বাগতিক","ড্র","অতিথি","পক্ষ A","পক্ষ B","প্রতিটি ফলাফলের জন্য ১-এর বেশি দশমিক অডস দিন।","মোট","১০০%-এর উপরে যা কিছু, তা বুকমেকারের অন্তর্নির্মিত সুবিধা।","ফলাফল","মার্জিন ছাড়া","ন্যায্য অডস","এই বাজি আপনাকে সীমার এত উপরে নিয়ে যাবে","এই বাজির পর সীমার বাকি","ম্যাচ ও বাছাই লিখুন।","অডস ১-এর বেশি হতে হবে, যেমন 1.85।","বাজির পরিমাণ শূন্যের বেশি হতে হবে।","একটি তারিখ বেছে নিন।","বাজির পরিমাণ ক্যাশ আউট করা অংশের বেশি হতে হবে।","সঠিক পরিমাণ দিন।","বাজি সংরক্ষিত হয়েছে।","স্প্রেডশিট সংরক্ষিত হয়েছে।","ডাউনলোড বাতিল হয়েছে।","সংরক্ষণ করার মতো আপনার কোনো বাজি এখনও নেই।","ক্যাশ-আউট","ক্যাশ আউট করে","ক্যাশ আউট না করলে","বাজি রেখে দিলে","এই ফলাফল ছাড়া বাজি গণনা হয়নি:","ক্যাশ আউট করলে এখানে দেখাবে।","বদলান","ক্যাশ আউটের পার্থক্য","বাজি রেখে দেওয়ার তুলনায়","প্রতি ক্যাশ-আউটে গড়","ফলাফল বাকি","সেরা মাস","সবচেয়ে খারাপ মাস","মাসিক গড়","এই মাস","সেরা","সবচেয়ে খারাপ","সর্বোচ্চ রিটার্ন","সবচেয়ে বেশি বাজি","বাজিগুলি দেখতে চার্টে চাপুন।","বন্ধ করুন","ইউরো ও দশমিক অডস। আপনার বাজি শুধু এই ডিভাইসে সংরক্ষিত থাকে।","সীমা বদলান","মাসিক সীমা"],"pt":["Euros e odds decimais. Só você pode ver as suas apostas.","Resumo","Nova aposta","As minhas apostas","Análises","Margem","Lucro ou prejuízo líquido","Lucro acumulado","Apostado vs. limite","Lucro mensal","Por desporto","Por tipo de aposta","Simples","Múltipla","Adicionar seleção","Jogo","A sua seleção","Odd","Valor","Data","Casa de apostas","Desporto","Escolher","Futebol","Basquetebol","Ténis","Outro","Esta é uma aposta grátis","Odd total","Probabilidade implícita","Retorno se ganhar","Cancelar","Guardar aposta","As suas apostas","Todas","Abertas","Liquidadas","Transferir folha de cálculo","Margem da casa","Casa / empate / fora","Dois resultados","Onde ganha e perde","Tipo de aposta","Mês a mês","Liquide uma aposta para ver isto.","Ponto de equilíbrio","Retorno sobre apostas","Apostado","Taxa de acerto","Ganhas","Perdidas","Cash out feito","Em risco","Os valores aparecem aqui quando registar uma aposta. As apostas grátis não contam.","A linha de lucro começa quando duas apostas forem liquidadas.","Acima do limite","Limite","Apostas","Início","Aposta","As apostas marcadas como Exemplo são dados fictícios e contam nestes totais e no seu limite.","Remover exemplos","A carregar as suas apostas…","Não há apostas nesta vista.","Ainda não há apostas. Adicione uma em Nova aposta.","Implícita","Retorno","Recebido","Eliminar esta aposta?","Eliminar","Manter","Guardar","Valor que recebeu de volta","Anulada","Cash out","Cash out parcial","Editar","Reabrir","Exemplo","Aposta grátis","Desfazer último","Não definido","Lucro","Retorno","Mês","As apostas contam no mês em que foram feitas. As abertas contam quando forem liquidadas.","Editar aposta","Guardar alterações","Altere os dados e prima Guardar alterações.","Anular seleção","Desfazer anulação","Disponível","Perto do limite","Dentro do limite","Seleção","Remover","Casa","Empate","Fora","Lado A","Lado B","Introduza odds decimais superiores a 1 para cada resultado.","Total","Tudo o que excede 100% é a margem incorporada da casa.","Resultado","Sem margem","Odd justa","Esta aposta ultrapassaria o seu limite em","Restante do limite após esta aposta","Preencha o jogo e a seleção.","A odd tem de ser superior a 1, por exemplo 1,85.","O valor tem de ser superior a zero.","Escolha uma data.","O valor tem de ser superior à parte já recebida em cash out.","Introduza valores válidos.","Aposta guardada.","Folha de cálculo guardada.","Transferência cancelada.","Ainda não tem apostas suas para guardar.","Cash outs","Com cash out","Sem cash out","Se a tivesse mantido","Apostas sem este resultado não contam:","Aparecem aqui depois de fazer cash out.","Alterar","Diferença do cash out","Comparado com manter as apostas","Média por cash out","Resultados em falta","Melhor mês","Pior mês","Média por mês","Este mês","Melhor","Pior","Maior retorno","Mais apostas","Prima o gráfico para ver as apostas.","Fechar","Euros e odds decimais. As suas apostas ficam guardadas apenas neste dispositivo.","Alterar limite","Limite mensal"],"ru":["Евро и десятичные коэффициенты. Ваши ставки видите только вы.","Обзор","Новая ставка","Мои ставки","Аналитика","Маржа","Чистая прибыль или убыток","Накопленная прибыль","Ставки и лимит","Прибыль по месяцам","По видам спорта","По типам ставок","Ординар","Экспресс","Добавить событие","Матч","Ваш выбор","Коэффициент","Сумма","Дата","Букмекер","Спорт","Выбрать","Футбол","Баскетбол","Теннис","Другое","Это бесплатная ставка","Общий коэффициент","Подразумеваемая вероятность","Выплата при выигрыше","Отмена","Сохранить ставку","Ваши ставки","Все","Открытые","Рассчитанные","Скачать таблицу","Маржа букмекера","Победа / ничья / победа","Два исхода","Где вы выигрываете и проигрываете","Тип ставки","По месяцам","Рассчитайте ставку, чтобы увидеть это.","Безубыточность","Доходность","Поставлено","Доля выигрышей","Выигрыш","Проигрыш","Кэшаут","Под риском","Суммы появятся здесь, когда вы добавите ставку. Бесплатные ставки не учитываются.","Линия прибыли появится после расчёта двух ставок.","Лимит превышен","Лимит","Ставки","Начало","Ставка","Ставки с пометкой «Пример» — это образцы; они учитываются в итогах и в вашем лимите.","Удалить примеры","Загрузка ставок…","В этом списке нет ставок.","Ставок пока нет. Добавьте их в разделе «Новая ставка».","Вероятность","Выплата","Получено","Удалить эту ставку?","Удалить","Оставить","Сохранить","Сумма, которую вы получили","Возврат","Кэшаут","Частичный кэшаут","Изменить","Открыть снова","Пример","Бесплатная ставка","Отменить последний","Не указано","Прибыль","Доходность","Месяц","Ставки считаются в месяце, когда они сделаны. Открытые учитываются после расчёта.","Изменить ставку","Сохранить изменения","Измените данные и нажмите «Сохранить изменения».","Возврат события","Отменить возврат","Осталось","Почти у лимита","В пределах лимита","Событие","Убрать","Хозяева","Ничья","Гости","Сторона A","Сторона B","Введите десятичные коэффициенты больше 1 для каждого исхода.","Итого","Всё, что выше 100%, — это встроенное преимущество букмекера.","Исход","Без маржи","Справедливый коэффициент","Эта ставка превысит ваш лимит на","Останется от лимита после этой ставки","Укажите матч и выбор.","Коэффициент должен быть больше 1, например 1,85.","Сумма должна быть больше нуля.","Выберите дату.","Сумма должна быть больше уже выведенной части.","Введите корректные суммы.","Ставка сохранена.","Таблица сохранена.","Скачивание отменено.","У вас пока нет своих ставок для сохранения.","Кэшауты","С кэшаутом","Без кэшаута","Если бы вы не закрывали","Ставки без этого результата не учтены:","Появится здесь после кэшаута.","Изменить","Разница от кэшаутов","По сравнению с удержанием ставок","В среднем за кэшаут","Нет результатов","Лучший месяц","Худший месяц","В среднем за месяц","Этот месяц","Лучшее","Худшее","Наивысшая доходность","Больше всего ставок","Нажмите на график, чтобы увидеть ставки.","Закрыть","Евро и десятичные коэффициенты. Ставки сохраняются только на этом устройстве.","Изменить лимит","Месячный лимит"],"ur":["یورو اور اعشاری اوڈز۔ آپ کی شرطیں صرف آپ دیکھ سکتے ہیں۔","جائزہ","نئی شرط","میری شرطیں","تجزیہ","مارجن","خالص نفع یا نقصان","مجموعی نفع","شرط بمقابلہ حد","ماہانہ نفع","کھیل کے لحاظ سے","شرط کی قسم کے لحاظ سے","سنگل","ملٹی","لیگ شامل کریں","میچ","آپ کا انتخاب","اوڈز","رقم","تاریخ","بک میکر","کھیل","منتخب کریں","فٹ بال","باسکٹ بال","ٹینس","دیگر","یہ ایک مفت شرط ہے","کل اوڈز","متوقع امکان","جیتنے پر واپسی","منسوخ","شرط محفوظ کریں","آپ کی شرطیں","سب","کھلی","طے شدہ","اسپریڈشیٹ ڈاؤن لوڈ کریں","بک میکر کا مارجن","جیت / برابر / جیت","دو نتائج","آپ کہاں جیتتے اور ہارتے ہیں","شرط کی قسم","ماہ بہ ماہ","یہ دیکھنے کے لیے کوئی شرط طے کریں۔","برابری کی شرح","شرط پر منافع","لگائی گئی رقم","جیت کی شرح","جیتی","ہاری","کیش آؤٹ ہوئی","خطرے میں","شرط درج کرنے پر رقم یہاں نظر آئے گی۔ مفت شرطیں شمار نہیں ہوتیں۔","دو شرطیں طے ہونے پر نفع کی لکیر شروع ہوگی۔","حد سے زیادہ","حد","شرطیں","آغاز","شرط","مثال نشان والی شرطیں نمونہ ڈیٹا ہیں اور ان مجموعوں اور آپ کی حد میں شمار ہوتی ہیں۔","مثالیں ہٹائیں","آپ کی شرطیں لوڈ ہو رہی ہیں…","اس منظر میں کوئی شرط نہیں۔","ابھی کوئی شرط نہیں۔ ’نئی شرط‘ میں شامل کریں۔","متوقع","واپسی","موصول","یہ شرط حذف کریں؟","حذف کریں","رکھیں","محفوظ کریں","آپ کو واپس ملی رقم","کالعدم","کیش آؤٹ","جزوی کیش آؤٹ","ترمیم","دوبارہ کھولیں","مثال","مفت شرط","آخری واپس لیں","طے نہیں","نفع","منافع","مہینہ","شرطیں اسی مہینے میں شمار ہوتی ہیں جب لگائی گئیں۔ کھلی شرطیں طے ہونے پر شمار ہوتی ہیں۔","شرط میں ترمیم","تبدیلیاں محفوظ کریں","تفصیلات بدلیں، پھر ’تبدیلیاں محفوظ کریں‘ دبائیں۔","لیگ کالعدم کریں","کالعدم واپس لیں","باقی","حد کے قریب","حد کے اندر","لیگ","ہٹائیں","میزبان","برابر","مہمان","فریق A","فریق B","ہر نتیجے کے لیے 1 سے زیادہ اعشاری اوڈز درج کریں۔","کل","100% سے اوپر جو کچھ ہے وہ بک میکر کا اندرونی فائدہ ہے۔","نتیجہ","مارجن کے بغیر","منصفانہ اوڈز","یہ شرط آپ کو حد سے اتنا اوپر لے جائے گی","اس شرط کے بعد حد میں باقی","میچ اور انتخاب بھریں۔","اوڈز 1 سے زیادہ ہونے چاہییں، مثلاً 1.85۔","رقم صفر سے زیادہ ہونی چاہیے۔","تاریخ منتخب کریں۔","رقم کیش آؤٹ کیے گئے حصے سے زیادہ ہونی چاہیے۔","درست رقم درج کریں۔","شرط محفوظ ہو گئی۔","اسپریڈشیٹ محفوظ ہو گئی۔","ڈاؤن لوڈ منسوخ ہو گیا۔","محفوظ کرنے کے لیے ابھی آپ کی کوئی شرط نہیں۔","کیش آؤٹ","کیش آؤٹ کر کے","اگر کیش آؤٹ نہ کرتے","اگر شرط رکھتے","اس نتیجے کے بغیر شرطیں شمار نہیں ہوئیں:","کیش آؤٹ کرنے پر یہاں نظر آئے گا۔","بدلیں","کیش آؤٹ کا فرق","شرطیں رکھنے کے مقابلے میں","فی کیش آؤٹ اوسط","نتائج باقی","بہترین مہینہ","بدترین مہینہ","ماہانہ اوسط","یہ مہینہ","بہترین","بدترین","سب سے زیادہ منافع","سب سے زیادہ شرطیں","شرطیں دیکھنے کے لیے چارٹ دبائیں۔","بند کریں","یورو اور اعشاری اوڈز۔ آپ کی شرطیں صرف اسی ڈیوائس پر محفوظ ہوتی ہیں۔","حد بدلیں","ماہانہ حد"],"ro":["Euro și cote zecimale. Doar tu îți poți vedea pariurile.","Prezentare","Pariu nou","Pariurile mele","Analize","Marjă","Profit sau pierdere netă","Profit cumulat","Mize vs. limită","Profit lunar","Pe sporturi","Pe tip de pariu","Simplu","Multiplu","Adaugă selecție","Meci","Selecția ta","Cotă","Miză","Dată","Casă de pariuri","Sport","Alege","Fotbal","Baschet","Tenis","Altul","Este un pariu gratuit","Cotă totală","Probabilitate implicită","Câștig returnat","Anulează","Salvează pariul","Pariurile tale","Toate","Deschise","Încheiate","Descarcă foaia de calcul","Marja casei de pariuri","Gazde / egal / oaspeți","Două rezultate","Unde câștigi și pierzi","Tip de pariu","Lună de lună","Încheie un pariu pentru a vedea asta.","Prag de rentabilitate","Randament pe mize","Mizat","Rată de câștig","Câștigate","Pierdute","Retrase","În risc","Mizele apar aici după ce adaugi un pariu. Pariurile gratuite nu se numără.","Linia de profit începe după două pariuri încheiate.","Peste limită","Limită","Pariuri","Start","Pariu","Pariurile marcate Exemplu sunt date de probă și se numără în aceste totaluri și în limita ta.","Șterge exemplele","Se încarcă pariurile…","Niciun pariu în această listă.","Încă nu ai pariuri. Adaugă unul la Pariu nou.","Implicită","Returnare","Primit","Ștergi acest pariu?","Șterge","Păstrează","Salvează","Suma primită înapoi","Anulat","Retragere","Retragere parțială","Editează","Redeschide","Exemplu","Pariu gratuit","Anulează ultima","Nesetat","Profit","Randament","Lună","Pariurile se numără în luna plasării. Cele deschise se numără după încheiere.","Editează pariul","Salvează modificările","Schimbă detaliile, apoi apasă Salvează modificările.","Anulează selecția","Refă selecția","Rămas","Aproape de limită","În limită","Selecție","Elimină","Gazde","Egal","Oaspeți","Partea A","Partea B","Introdu cote zecimale peste 1 pentru fiecare rezultat.","Total","Tot ce depășește 100% este avantajul inclus al casei de pariuri.","Rezultat","Fără marjă","Cotă corectă","Acest pariu ți-ar depăși limita cu","Rămas din limită după acest pariu","Completează meciul și selecția.","Cota trebuie să fie peste 1, de exemplu 1,85.","Miza trebuie să fie mai mare decât zero.","Alege o dată.","Miza trebuie să fie mai mare decât partea deja retrasă.","Introdu sume valide.","Pariu salvat.","Foaie de calcul salvată.","Descărcare anulată.","Încă nu ai pariuri proprii de salvat.","Retrageri","Cu retragere","Fără retragere","Dacă îl păstrai","Pariuri fără acest rezultat nu se numără:","Apar aici după ce retragi un pariu.","Schimbă","Diferență din retrageri","Față de păstrarea pariurilor","Medie pe retragere","Rezultate lipsă","Cea mai bună lună","Cea mai slabă lună","Medie lunară","Luna aceasta","Cel mai bun","Cel mai slab","Cel mai mare randament","Cele mai multe pariuri","Apasă pe grafic pentru a vedea pariurile.","Închide","Euro și cote zecimale. Pariurile tale sunt salvate doar pe acest dispozitiv.","Schimbă limita","Limită lunară"],"nl":["Euro’s en decimale odds. Alleen jij kunt je weddenschappen zien.","Overzicht","Nieuwe weddenschap","Mijn weddenschappen","Inzichten","Marge","Netto winst of verlies","Lopende winst","Inzet vs. limiet","Maandwinst","Per sport","Per soort","Enkel","Combi","Selectie toevoegen","Wedstrijd","Jouw keuze","Odds","Inzet","Datum","Bookmaker","Sport","Kies","Voetbal","Basketbal","Tennis","Anders","Dit is een gratis weddenschap","Totale odds","Impliciete kans","Uitbetaling bij winst","Annuleren","Weddenschap opslaan","Jouw weddenschappen","Alle","Open","Afgerond","Spreadsheet downloaden","Bookmakermarge","Thuis / gelijk / uit","Twee uitkomsten","Waar je wint en verliest","Soort weddenschap","Per maand","Rond een weddenschap af om dit te zien.","Break-even","Rendement op inzet","Ingezet","Winstpercentage","Gewonnen","Verloren","Uitbetaald","Risico","Je inzet verschijnt hier zodra je een weddenschap toevoegt. Gratis weddenschappen tellen niet mee.","De winstlijn start zodra twee weddenschappen zijn afgerond.","Boven limiet","Limiet","Weddenschappen","Start","Weddenschap","Weddenschappen met Voorbeeld zijn proefgegevens en tellen mee in deze totalen en je limiet.","Voorbeelden verwijderen","Weddenschappen laden…","Geen weddenschappen in deze weergave.","Nog geen weddenschappen. Voeg er een toe bij Nieuwe weddenschap.","Impliciet","Uitbetaling","Ontvangen","Deze weddenschap verwijderen?","Verwijderen","Behouden","Opslaan","Bedrag dat je terugkreeg","Ongeldig","Cash-out","Gedeeltelijke cash-out","Bewerken","Heropenen","Voorbeeld","Gratis weddenschap","Laatste ongedaan maken","Niet ingesteld","Winst","Rendement","Maand","Weddenschappen tellen in de maand waarin je ze plaatste. Open weddenschappen tellen zodra ze zijn afgerond.","Weddenschap bewerken","Wijzigingen opslaan","Pas de gegevens aan en druk op Wijzigingen opslaan.","Selectie ongeldig","Ongeldig ongedaan maken","Over","Bijna aan limiet","Binnen limiet","Selectie","Verwijderen","Thuis","Gelijk","Uit","Kant A","Kant B","Vul decimale odds boven 1 in voor elke uitkomst.","Totaal","Alles boven 100% is het ingebouwde voordeel van de bookmaker.","Uitkomst","Zonder marge","Eerlijke odds","Met deze weddenschap ga je over je limiet met","Over van je limiet na deze weddenschap","Vul de wedstrijd en keuze in.","Odds moeten boven 1 zijn, bijvoorbeeld 1,85.","Inzet moet meer dan nul zijn.","Kies een datum.","Inzet moet hoger zijn dan het deel dat al is uitbetaald.","Vul geldige bedragen in.","Weddenschap opgeslagen.","Spreadsheet opgeslagen.","Download geannuleerd.","Je hebt nog geen eigen weddenschappen om op te slaan.","Cash-outs","Met cash-out","Zonder cash-out","Als je hem had gehouden","Zonder deze uitslag niet meegeteld:","Verschijnt hier na een cash-out.","Wijzigen","Verschil door cash-outs","Vergeleken met de weddenschappen houden","Gemiddeld per cash-out","Ontbrekende uitslagen","Beste maand","Slechtste maand","Gemiddeld per maand","Deze maand","Beste","Slechtste","Hoogste rendement","Meeste weddenschappen","Druk op de grafiek om de weddenschappen te zien.","Sluiten","Euro’s en decimale odds. Je weddenschappen worden alleen op dit apparaat bewaard.","Limiet wijzigen","Maandlimiet"]}};
+  const KEYI=new Map(I18N.keys.map((k,i)=>[k,i]));
+  S.lang='en';try{const l=localStorage.getItem('slipbook-lang');if(I18N.langs.some(x=>x[0]===l))S.lang=l;}catch(e){}
+  const t=k=>{const d=I18N.t[S.lang],i=KEYI.get(k);return d&&i!=null?d[i]:k;};
+  const loc=()=>I18N.langs.find(x=>x[0]===S.lang)[2]+'-u-nu-latn';
+  S.limit=20;S.limEdit=false;
+  const STATUS={open:'Open',won:'Won',lost:'Lost',void:'Void',cashout:'Cashed out'};
+  const blankLegs=()=>[{event:'',pick:'',odds:''},{event:'',pick:'',odds:''}];
+  S.legs=blankLegs();
+  const multiOdds=legs=>Math.round(legs.filter(l=>!l.void).reduce((a,l)=>a*l.odds,1)*10000)/10000;
+  const money=n=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR'}).format(n);
+  const signed=n=>'\u200e'+(n>0.004?'+':n<-0.004?'−':'')+money(Math.abs(n));
+  const pct=x=>(x*100).toFixed(1)+'%';
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const today=()=>new Date().toLocaleDateString('en-CA');
+  const partSum=b=>(Array.isArray(b.partials)?b.partials:[]).reduce((a,p)=>({stake:a.stake+p.stake,got:a.got+p.got}),{stake:0,got:0});
+  const remaining=b=>Math.max(0,b.stake-partSum(b).stake);
+  function profitOf(b){
+    if(b.status==='open')return 0;
+    const p=partSum(b),r=remaining(b),free=!!b.freeBet;
+    const part=free?p.got:p.got-p.stake;
+    const got=b.returned||0;
+    const rest=b.status==='won'?r*(b.odds-1):b.status==='lost'?(free?0:-r):b.status==='cashout'?(free?got:got-r):0;
+    return part+rest;
+  }
+
+  function summarize(bets){
+    const decided=bets.filter(b=>b.status==='won'||b.status==='lost');
+    const cashed=bets.filter(b=>b.status==='cashout');
+    const settled=decided.concat(cashed);
+    const open=bets.filter(b=>b.status==='open');
+    const own=settled.filter(b=>!b.freeBet);
+    const rated=decided.filter(b=>!b.freeBet);
+    const staked=own.reduce((a,b)=>a+b.stake,0);
+    const net=settled.reduce((a,b)=>a+profitOf(b),0);
+    const wins=decided.filter(b=>b.status==='won').length;
+    const ratedWins=rated.filter(b=>b.status==='won').length;
+    return {count:settled.length,losses:decided.length-wins,cashed:cashed.length,staked,net,wins,
+      roi:staked?net/staked:null,
+      winRate:rated.length?ratedWins/rated.length:null,
+      breakeven:rated.length?rated.reduce((a,b)=>a+1/b.odds,0)/rated.length:null,
+      openCount:open.length,atRisk:open.filter(b=>!b.freeBet).reduce((a,b)=>a+remaining(b),0)};
+  }
+
+  function settledOrder(){
+    return S.bets.filter(b=>b.status==='won'||b.status==='lost'||b.status==='cashout')
+      .slice().sort((a,b)=>String(a.settledAt||a.placedAt).localeCompare(String(b.settledAt||b.placedAt))||(a.createdAt||0)-(b.createdAt||0));
+  }
+
+  function renderSummary(){
+    const s=summarize(S.bets);
+    const net=$('net');
+    net.textContent=signed(s.net);
+    net.className='net '+(s.net>0.004?'pos':s.net<-0.004?'neg':'');
+    renderChart();
+    renderChart();
+  }
+
+  function niceStep(span,count){
+    const raw=(span||1)/count,mag=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/mag;
+    return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;
+  }
+
+  function renderStats(){
+    const dash='–';
+    let rows;
+    if(S.chart==='cash'){
+      const c=cashStats(),diff=c.actual-c.held;
+      rows=[
+        [t('Cash-outs'),String(c.total),t('Bets')+': '+(c.known+c.unknown)],
+        [t('Difference from cashing out'),c.known?signed(diff):dash,t('Compared with keeping the bets')],
+        [t('Average per cash-out'),c.known?signed(c.actual/c.known):dash,t('With cashing out')+': '+(c.known?signed(c.actual):dash)],
+        [t('Missing results'),String(c.unknown),t('My bets')]
+      ];
+    }else if(S.chart==='month'){
+      const groups=new Map();
+      S.bets.filter(b=>['won','lost','cashout'].includes(b.status)).forEach(b=>{const k=String(b.placedAt).slice(0,7);groups.set(k,(groups.get(k)||0)+profitOf(b));});
+      const list=[...groups.entries()].sort((a,b)=>b[1]-a[1]);
+      const name=k=>new Date(k+'-15T12:00:00').toLocaleDateString(loc(),{month:'long',year:'numeric'});
+      const total=list.reduce((a,x)=>a+x[1],0);
+      const key=today().slice(0,7),now=groups.get(key)||0,bets=S.bets.filter(b=>String(b.placedAt).startsWith(key)).length;
+      rows=[
+        [t('Best month'),list.length?signed(list[0][1]):dash,list.length?name(list[0][0]):dash],
+        [t('Worst month'),list.length>1?signed(list[list.length-1][1]):dash,list.length>1?name(list[list.length-1][0]):dash],
+        [t('Average per month'),list.length?signed(total/list.length):dash,t('Month')+': '+list.length],
+        [t('This month'),signed(now),t('Bets')+': '+bets]
+      ];
+    }else if(S.chart==='sport'||S.chart==='type'){
+      const list=[...groupResults(S.chart).entries()].sort((a,b)=>b[1].net-a[1].net);
+      const paid=list.filter(x=>x[1].staked>0).sort((a,b)=>b[1].net/b[1].staked-a[1].net/a[1].staked);
+      const busiest=list.slice().sort((a,b)=>b[1].n-a[1].n)[0];
+      rows=[
+        [t('Best'),list.length?signed(list[0][1].net):dash,list.length?list[0][0]:dash],
+        [t('Worst'),list.length>1?signed(list[list.length-1][1].net):dash,list.length>1?list[list.length-1][0]:dash],
+        [t('Highest return'),paid.length?roiText(paid[0][1].net,paid[0][1].staked):dash,paid.length?paid[0][0]:dash],
+        [t('Most bets'),busiest?String(busiest[1].n):dash,busiest?busiest[0]:dash]
+      ];
+    }else{
+      const r=summarize(S.bets);
+      const winLine=r.winRate==null?t('Settle a bet to see this.'):t('Break-even')+': '+pct(r.breakeven);
+      rows=[
+        [t('Return on stakes'),r.roi==null?dash:'‎'+(r.roi>0?'+':'')+pct(r.roi),t('Staked')+': '+money(r.staked)],
+        [t('Win rate'),r.winRate==null?dash:pct(r.winRate),winLine],
+        [t('Settled'),String(r.count),t('Won')+': '+r.wins+', '+t('Lost')+': '+r.losses+(r.cashed?', '+t('Cashed out')+': '+r.cashed:'')],
+        [t('Open'),String(r.openCount),t('At risk')+': '+money(r.atRisk)]
+      ];
+    }
+    $('stats').innerHTML=rows.map(r=>'<div class="stat"><h3>'+esc(r[0])+'</h3><strong>'+esc(r[1])+'</strong><small>'+esc(r[2])+'</small></div>').join('');
+  }
+
+  function selectDrill(item){
+    S.drill=S.drill&&S.drill.key===item.key?null:{chart:S.chart,key:item.key,name:item.name};
+    S.drillF='all';renderChart();
+  }
+  function drillBets(){
+    const dr=S.drill,inMonth=b=>String(b.placedAt).startsWith(dr.key);
+    if(dr.chart==='run')return S.bets.filter(b=>b.id===dr.key);
+    if(dr.chart==='cash')return S.bets.filter(b=>inMonth(b)&&(b.status==='cashout'||(Array.isArray(b.partials)&&b.partials.length)));
+    if(dr.chart==='month')return S.bets.filter(inMonth);
+    return S.bets.filter(b=>['won','lost','cashout'].includes(b.status)&&groupKey(b,dr.chart)===dr.key);
+  }
+  function renderDrill(){
+    const box=$('drill');
+    if(!S.drill){box.innerHTML=S.bets.length?'<div class="meta">'+esc(t('Press the chart to see the bets behind it.'))+'</div>':'';return;}
+    const all=drillBets().sort((a,b)=>String(b.placedAt).localeCompare(String(a.placedAt)));
+    const labels={open:t('Open'),won:t('Won'),lost:t('Lost'),void:t('Void'),cashout:t('Cashed out')};
+    const present=['won','lost','cashout','void','open'].filter(x=>all.some(b=>b.status===x));
+    if(S.drillF!=='all'&&!present.includes(S.drillF))S.drillF='all';
+    const list=S.drillF==='all'?all:all.filter(b=>b.status===S.drillF);
+    const filters=S.drill.chart==='run'?'':'<div class="seg" role="group" style="margin-bottom:6px">'+[['all',t('All'),all.length]].concat(present.map(x=>[x,labels[x],all.filter(b=>b.status===x).length])).map(f=>'<button type="button" data-df="'+f[0]+'" aria-pressed="'+(S.drillF===f[0])+'">'+esc(f[1])+' '+f[2]+'</button>').join('')+'</div>';
+    const rows=list.map(b=>{
+      const v=profitOf(b),cls=v>0.004?'pos':v<-0.004?'neg':'';
+      const sub=[b.pick,'@ '+Number(b.odds).toFixed(2),b.placedAt].filter(Boolean).map(esc).join(' · ');
+      const held=b.status==='cashout'&&b.ifHeld?' · '+esc(t('If you had kept it'))+': '+esc(labels[b.ifHeld]):'';
+      return '<div class="drill-row"><div style="min-width:0"><div class="bet-title">'+esc(b.event)+'</div><div class="bet-sub">'+sub+'</div><div class="bet-sub"><span class="pill '+esc(b.status)+'">'+esc(labels[b.status])+'</span>'+(b.freeBet?' <span class="pill free">'+esc(t('Free bet'))+'</span>':'')+held+'</div></div><div class="drill-money '+cls+'">'+esc(b.status==='open'?money(remaining(b)):signed(v))+'</div></div>';
+    }).join('');
+    box.innerHTML='<div class="drill-head"><span class="drill-title">'+esc(S.drill.name)+'</span><button type="button" class="linkbtn" data-dclose="1">'+esc(t('Close'))+'</button></div>'+filters+(rows||'<div class="empty">'+esc(t('No bets in this view.'))+'</div>');
+  }
+
+  function renderChart(){
+    if(S.drill&&S.drill.chart!==S.chart)S.drill=null;
+    [...$('chartView').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===S.chart));
+    renderStats();
+    if(S.chart==='run')renderRun();else renderBarChart();
+    renderDrill();
+  }
+
+  function lastMonths(n){
+    const now=new Date(),out=[];
+    for(let i=n-1;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,15);
+      out.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:d.toLocaleDateString(loc(),{month:'short'}),long:d.toLocaleDateString(loc(),{month:'long',year:'numeric'})});
+    }
+    return out;
+  }
+
+  function cashStats(){
+    const months={};let total=0,actual=0,held=0,unknown=0,known=0;
+    S.bets.forEach(b=>{
+      const p=partSum(b),partCount=Array.isArray(b.partials)?b.partials.length:0,full=b.status==='cashout';
+      const count=partCount+(full?1:0);
+      if(!count)return;
+      const k=String(b.placedAt).slice(0,7);months[k]=(months[k]||0)+count;total+=count;
+      if(b.status==='open')return;
+      const result=full?b.ifHeld:b.status;
+      if(!result){unknown++;return;}
+      known++;
+      const cashedStake=p.stake+(full?remaining(b):0),got=p.got+(full?(b.returned||0):0),free=!!b.freeBet;
+      actual+=free?got:got-cashedStake;
+      held+=result==='won'?cashedStake*(b.odds-1):result==='lost'?(free?0:-cashedStake):0;
+    });
+    return {months,total,actual,held,unknown,known};
+  }
+  function cashNoteHtml(c){
+    const cls=v=>v>0.004?'pos':v<-0.004?'neg':'';
+    const row=(k,v)=>'<div class="note-row"><span>'+esc(t(k))+'</span><b class="'+cls(v)+'">'+esc(c.known?signed(v):'–')+'</b></div>';
+    return '<div class="chart-note">'+row('With cashing out',c.actual)+row('If you hadn’t cashed out',c.held)+(c.unknown?'<div class="meta">'+esc(t('Bets without a kept-it result are not counted:'))+' '+c.unknown+'</div>':'')+'</div>';
+  }
+
+  function renderBarChart(){
+    const box=$('chart');
+    let items=[],ref=null,empty='',note=null;
+    if(S.chart==='cash'){
+      const c=cashStats();
+      items=lastMonths(6).map(m=>{const v=c.months[m.key]||0;return {key:m.key,name:m.long,label:m.label,value:v,color:'var(--accent)',text:String(v),tip:esc(m.long)+'<br>'+esc(t('Cash-outs'))+': '+v};});
+      note=c;
+      if(!c.total)empty=t('Cash-outs appear here once you cash out a bet.');
+    }else if(S.chart==='month'){
+      items=lastMonths(6).map(m=>{const v=S.bets.filter(b=>String(b.placedAt).startsWith(m.key)).reduce((a,b)=>a+profitOf(b),0);return {key:m.key,name:m.long,label:m.label,value:v,color:v<0?'var(--lost)':'var(--won)',text:signed(v),tip:esc(m.long)+'<br>'+esc(signed(v))};});
+      if(!items.some(i=>Math.abs(i.value)>0.004))empty=t('Settle a bet to see this.');
+    }else{
+      const groups=groupResults(S.chart);
+      items=[...groups.entries()].sort((a,b)=>b[1].net-a[1].net).map(([k,g])=>({key:k,name:k,label:k,value:g.net,color:g.net<0?'var(--lost)':'var(--won)',text:signed(g.net),tip:esc(k)+'<br>'+esc(signed(g.net))+'<br>'+esc(t('Bets'))+': '+g.n}));
+      if(!items.length)empty=t('Settle a bet to see this.');
+    }
+    if(empty){box.innerHTML='<div class="chart-empty">'+esc(empty)+'</div>';return;}
+    const W=Math.max(280,box.clientWidth||600),H=W>560?290:200,m={l:58,r:14,t:20,b:26};
+    const vals=items.map(i=>i.value).concat(ref?[ref.value]:[]);
+    const lo=Math.min(0,...vals),hi=Math.max(0,...vals);
+    const step=S.chart==='cash'?Math.max(1,Math.ceil(niceStep(hi-lo,4))):niceStep(hi-lo,4),y0=Math.floor(lo/step)*step,y1=Math.ceil(hi/step)*step||step;
+    const ticks=[];for(let v=y0;v<=y1+step/2;v+=step)ticks.push(Math.round(v*100)/100);
+    const Y=v=>m.t+(H-m.t-m.b)*(1-(v-y0)/((y1-y0)||1));
+    const band=(W-m.l-m.r)/items.length,bw=Math.min(56,band*0.6);
+    const tickLabel=v=>S.chart==='cash'?String(v):(v<0?'−':'')+'€'+Math.abs(v).toLocaleString('en-GB',{maximumFractionDigits:step<1?2:0});
+    const grid=ticks.map(v=>'<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"'+(v===0?'':' stroke-dasharray="2 4"')+'/><text class="tick" x="'+(m.l-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+tickLabel(v)+'</text>').join('');
+    const maxChars=Math.max(4,Math.floor(band/7));
+    const shortLabel=t=>t.length>maxChars?t.slice(0,maxChars-1)+'…':t;
+    const bars=items.map((it,i)=>{
+      const cx=m.l+band*(i+0.5),x=cx-bw/2,base=Y(0),top=Y(it.value),h=Math.abs(top-base);
+      let bar='';
+      if(h>0.5){
+        const r=Math.min(4,h,bw/2),up=it.value>0,dir=up?1:-1;
+        bar='<path fill="'+it.color+'"'+(S.drill&&S.drill.key!==it.key?' fill-opacity="0.35"':'')+' d="M'+x+' '+base+'V'+(top+dir*r)+'Q'+x+' '+top+' '+(x+r)+' '+top+'H'+(x+bw-r)+'Q'+(x+bw)+' '+top+' '+(x+bw)+' '+(top+dir*r)+'V'+base+'Z"/>';
+      }
+      const valY=it.value<0?top+14:top-6;
+      const val=band>=64&&Math.abs(it.value)>0.004?'<text class="tick" x="'+cx+'" y="'+valY+'" text-anchor="middle">'+esc(it.text)+'</text>':'';
+      return bar+val+'<text class="tick" x="'+cx+'" y="'+(H-6)+'" text-anchor="middle">'+esc(shortLabel(it.label))+'</text><rect data-i="'+i+'" tabindex="0" role="button" aria-label="'+esc(it.name+' '+it.text)+'" x="'+(m.l+band*i)+'" y="0" width="'+band+'" height="'+H+'" fill="transparent"/>';
+    }).join('');
+    const refLine=ref?'<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(ref.value)+'" y2="'+Y(ref.value)+'" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="6 4"/><text class="tick" x="'+(W-m.r)+'" y="'+(Y(ref.value)-6)+'" text-anchor="end">'+esc(ref.label)+'</text>':'';
+    const summary=items.map(i=>i.label+' '+i.text).join(', ');
+    box.innerHTML='<svg height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(summary)+'">'+grid+bars+refLine+'</svg><div class="tip" id="tip" hidden></div>'+(note?cashNoteHtml(note):'');
+    const svg=box.querySelector('svg'),tip=$('tip');
+    const show=e=>{
+      const i=e.target.dataset.i;if(i==null){tip.hidden=true;return;}
+      tip.innerHTML=items[+i].tip;tip.hidden=false;
+      const r=svg.getBoundingClientRect(),sx=(m.l+band*(+i+0.5))*(r.width/W),tw=tip.offsetWidth;
+      tip.style.left=Math.max(0,Math.min(r.width-tw,sx+12>r.width-tw?sx-tw-12:sx+12))+'px';
+    };
+    svg.addEventListener('pointermove',show);svg.addEventListener('pointerdown',show);svg.addEventListener('pointerleave',()=>{tip.hidden=true;});
+    const pick=e=>{const i=e.target.dataset.i;if(i!=null)selectDrill(items[+i]);};
+    svg.addEventListener('click',pick);
+    svg.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e);}});
+  }
+
+  function renderRun(){
+    const box=$('chart');
+    const list=settledOrder();
+    if(list.length<2){box.innerHTML='<div class="chart-empty">'+esc(t('Your profit line starts once two bets are settled.'))+'</div>';return;}
+    let run=0;
+    const pts=[{y:0,bet:null}].concat(list.map(b=>{run+=profitOf(b);return {y:run,bet:b};}));
+    const W=Math.max(280,box.clientWidth||600),H=W>560?290:200,m={l:58,r:14,t:12,b:26};
+    const vals=pts.map(p=>p.y),lo=Math.min(0,...vals),hi=Math.max(0,...vals);
+    const step=niceStep(hi-lo,4),y0=Math.floor(lo/step)*step,y1=Math.ceil(hi/step)*step||step;
+    const ticks=[];for(let v=y0;v<=y1+step/2;v+=step)ticks.push(Math.round(v*100)/100);
+    const X=i=>m.l+(W-m.l-m.r)*i/(pts.length-1);
+    const Y=v=>m.t+(H-m.t-m.b)*(1-(v-y0)/((y1-y0)||1));
+    const tickLabel=v=>(v<0?'−':'')+'€'+Math.abs(v).toLocaleString('en-GB',{maximumFractionDigits:step<1?2:0});
+    const grid=ticks.map(v=>'<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"'+(v===0?'':' stroke-dasharray="2 4"')+'/><text class="tick" x="'+(m.l-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+tickLabel(v)+'</text>').join('');
+    const path=pts.map((p,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.y).toFixed(1)).join(' ');
+    const last=pts.length-1;
+    box.innerHTML='<svg height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(t('Running profit'))+': '+esc(signed(run))+'">'+grid+
+      '<text class="tick" x="'+m.l+'" y="'+(H-6)+'">'+esc(t('Start'))+'</text><text class="tick" x="'+(W-m.r)+'" y="'+(H-6)+'" text-anchor="end">'+esc(t('Bet'))+' '+last+'</text>'+
+      '<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+
+      '<circle id="endDot" cx="'+X(last)+'" cy="'+Y(pts[last].y)+'" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>'+
+      '<line id="cross" y1="'+m.t+'" y2="'+(H-m.b)+'" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>'+
+      '<rect id="hit" x="'+m.l+'" y="0" width="'+(W-m.l-m.r)+'" height="'+H+'" fill="transparent"/></svg>'+
+      '<div class="tip" id="tip" hidden></div>';
+    const svg=box.querySelector('svg'),cross=$('cross'),tip=$('tip'),dot=$('endDot'),hit=$('hit');
+    const reset=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;dot.setAttribute('cx',X(last));dot.setAttribute('cy',Y(pts[last].y));};
+    let lastRun=null;
+    const move=e=>{
+      const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*(W/r.width);
+      const i=Math.max(0,Math.min(last,Math.round((px-m.l)/((W-m.l-m.r)/last))));
+      cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.setAttribute('visibility','visible');
+      dot.setAttribute('cx',X(i));dot.setAttribute('cy',Y(pts[i].y));
+      lastRun=i;
+      const p=pts[i];
+      tip.innerHTML=p.bet?'<b>'+esc(p.bet.event)+'</b><br>'+esc(t(STATUS[p.bet.status]))+' '+esc(signed(profitOf(p.bet)))+'<br>'+esc(t('Running profit'))+': '+esc(signed(p.y)):'<b>'+esc(t('Start'))+'</b><br>'+esc(money(0));
+      tip.hidden=false;
+      const tw=tip.offsetWidth,sx=X(i)*(r.width/W);
+      tip.style.left=Math.max(0,Math.min(r.width-tw,sx>r.width/2?sx-tw-10:sx+10))+'px';
+    };
+    hit.addEventListener('pointermove',move);hit.addEventListener('pointerdown',move);hit.addEventListener('pointerleave',reset);
+    hit.addEventListener('click',()=>{const p=pts[lastRun];if(p&&p.bet)selectDrill({key:p.bet.id,name:p.bet.event});});
+  }
+
+  function renderNotice(){
+    const n=$('pageNotice');
+    if(S.pageMsg){n.hidden=false;n.innerHTML='<span>'+esc(S.pageMsg)+'</span>';return;}
+    const ex=S.bets.filter(b=>b.example);
+    if(ex.length){n.hidden=false;n.innerHTML='<span>'+esc(t('Bets marked Example are sample data and count in these totals and your limit.'))+'</span><button type="button" id="clearEx">'+esc(t('Remove examples'))+'</button>';return;}
+    n.hidden=true;n.innerHTML='';
+  }
+
+  function renderBets(){
+    const el=$('bets');
+    let list=S.bets.slice().sort((a,b)=>String(b.placedAt).localeCompare(String(a.placedAt))||(b.createdAt||0)-(a.createdAt||0));
+    if(S.filter==='open')list=list.filter(b=>b.status==='open');
+    if(S.filter==='settled')list=list.filter(b=>b.status!=='open');
+    if(!list.length){
+      el.innerHTML='<li class="empty">'+esc(t(!S.ready?'Loading your bets…':S.bets.length?'No bets in this view.':'No bets yet. Add one under New bet.'))+'</li>';
+      return;
+    }
+    const label={open:t('Open'),won:t('Won'),lost:t('Lost'),void:t('Void'),cashout:t('Cashed out')};
+    el.innerHTML=list.map(b=>{
+      const busy=S.busy.has(b.id);
+      const sub=[b.type==='multi'?null:b.pick,'@ '+Number(b.odds).toFixed(2),t('Implied')+' '+pct(1/b.odds),b.book].filter(Boolean).map(esc).join(' · ');
+      const rem=remaining(b);
+      const moneyCell=b.status==='open'?'<b>'+esc(money(rem))+'</b><span class="bet-sub">'+esc(t('Returns'))+' '+esc(money(b.freeBet?rem*(b.odds-1):rem*b.odds))+'</span>'
+        :'<b class="'+(profitOf(b)>0?'pos':profitOf(b)<0?'neg':'')+'">'+esc(signed(profitOf(b)))+'</b><span class="bet-sub">'+(b.status==='cashout'?esc(t('Received'))+': '+esc(money(b.returned||0))+', ':'')+esc(t('Stake'))+': '+esc(money(b.stake))+'</span>';
+      let actions;
+      if(S.confirm===b.id){
+        actions='<span class="bet-sub">'+esc(t('Delete this bet?'))+'</span><button type="button" data-a="del" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Delete'))+'</button><button type="button" data-a="keep">'+esc(t('Keep'))+'</button>';
+      }else if(S.partial===b.id){
+        actions='<label class="bet-sub" for="partStake">'+esc(t('Stake'))+' (€)</label><input id="partStake" class="num cash-input" type="number" inputmode="decimal" step="0.01" min="0.01"><label class="bet-sub" for="partGot">'+esc(t('Received'))+' (€)</label><input id="partGot" class="num cash-input" type="number" inputmode="decimal" step="0.01" min="0"><button type="button" data-a="partsave" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Save'))+'</button><button type="button" data-a="partcancel">'+esc(t('Cancel'))+'</button>';
+      }else if(S.cashing===b.id){
+        actions='<label class="bet-sub" for="cashAmt">'+esc(t('Amount you got back'))+' (€)</label><input id="cashAmt" class="num cash-input" type="number" inputmode="decimal" step="0.01" min="0"><button type="button" data-a="cashsave" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Save'))+'</button><button type="button" data-a="cashcancel">'+esc(t('Cancel'))+'</button>';
+      }else if(b.status==='open'){
+        actions=['won','lost','void'].map(s=>'<button type="button" data-a="'+s+'" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+label[s]+'</button>').join('')+'<button type="button" data-a="cash" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Cash out'))+'</button><button type="button" data-a="partial" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Partial cash-out'))+'</button><span class="spacer"></span><button type="button" class="linkbtn" data-a="edit" data-id="'+esc(b.id)+'">'+esc(t('Edit'))+'</button><button type="button" class="linkbtn" data-a="ask" data-id="'+esc(b.id)+'">'+esc(t('Delete'))+'</button>';
+      }else{
+        actions='<button type="button" data-a="open" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Reopen'))+'</button><span class="spacer"></span><button type="button" class="linkbtn" data-a="edit" data-id="'+esc(b.id)+'">'+esc(t('Edit'))+'</button><button type="button" class="linkbtn" data-a="ask" data-id="'+esc(b.id)+'">'+esc(t('Delete'))+'</button>';
+      }
+      return '<li class="bet"><div style="min-width:0"><div class="bet-title">'+esc(b.event)+'</div><div class="bet-sub">'+sub+'</div>'+
+        '<div class="bet-sub"><span class="pill '+esc(b.status)+'">'+label[b.status]+'</span>'+(b.example?' <span class="pill ex">'+esc(t('Example'))+'</span>':'')+(b.freeBet?' <span class="pill free">'+esc(t('Free bet'))+'</span>':'')+(b.sport?' <span class="bet-sub">'+esc(t(b.sport))+'</span>':'')+' '+esc(b.placedAt)+'</div>'+partialHtml(b,busy)+heldHtml(b,busy)+legsHtml(b,busy)+'</div>'+
+        '<div class="bet-money">'+moneyCell+'</div><div class="bet-actions">'+actions+'</div></li>';
+    }).join('');
+  }
+
+  function heldHtml(b,busy){
+    if(b.status!=='cashout')return '';
+    const dis=busy?' disabled':'';
+    if(b.ifHeld)return '<div class="bet-sub held"><span>'+esc(t('If you had kept it'))+': '+esc(t({won:'Won',lost:'Lost',void:'Void'}[b.ifHeld]))+'</span><button type="button" class="linkbtn" data-a="heldclear" data-id="'+esc(b.id)+'"'+dis+'>'+esc(t('Change'))+'</button></div>';
+    return '<div class="bet-sub held"><span>'+esc(t('If you had kept it'))+':</span>'+[['won','Won'],['lost','Lost'],['void','Void']].map(x=>'<button type="button" data-a="held" data-r="'+x[0]+'" data-id="'+esc(b.id)+'"'+dis+'>'+esc(t(x[1]))+'</button>').join('')+'</div>';
+  }
+
+  function partialHtml(b,busy){
+    const p=partSum(b);
+    if(!p.stake)return '';
+    return '<div class="bet-sub partial-line"><span>'+esc(t('Partial cash-out'))+': \u200e'+esc(money(p.stake))+' → '+esc(money(p.got))+'</span>'+(b.status==='open'?'<button type="button" class="linkbtn" data-a="partundo" data-id="'+esc(b.id)+'"'+(busy?' disabled':'')+'>'+esc(t('Undo last'))+'</button>':'')+'</div>';
+  }
+
+  function statTable(heads,rows){
+    return '<table><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map((c,i)=>'<td'+(i===r.length-2?' class="'+(c.v>0.004?'pos':c.v<-0.004?'neg':'')+'"':'')+'>'+esc(c.t)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  }
+  const cell=(t,v)=>({t,v});
+  function roiText(net,staked){return staked?'\u200e'+(net>0?'+':'')+pct(net/staked):'–';}
+
+  function groupKey(b,by){return by==='sport'?(b.sport?t(b.sport):t('Not set')):by==='book'?(b.book||t('Not set')):t(b.type==='multi'?'Multi':'Single')+(b.freeBet?' ('+t('Free bet')+')':'');}
+  function groupResults(by){
+    const keyOf=b=>groupKey(b,by);
+    const groups=new Map();
+    S.bets.filter(b=>['won','lost','cashout'].includes(b.status)).forEach(b=>{
+      const k=keyOf(b),g=groups.get(k)||{n:0,staked:0,net:0};
+      g.n++;g.staked+=b.freeBet?0:b.stake;g.net+=profitOf(b);groups.set(k,g);
+    });
+    return groups;
+  }
+
+  function renderBreakdown(){
+    [...$('bdBy').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.b===S.bd));
+    const groups=groupResults(S.bd);
+    if(!groups.size){$('breakdown').innerHTML='<div class="empty">'+esc(t('Settle a bet to see this.'))+'</div>';return;}
+    const rows=[...groups.entries()].sort((a,b)=>b[1].net-a[1].net).map(([k,g])=>[cell(k),cell(String(g.n)),cell(money(g.staked)),cell(signed(g.net),g.net),cell(roiText(g.net,g.staked))]);
+    $('breakdown').innerHTML=statTable([t(S.bd==='sport'?'Sport':S.bd==='book'?'Bookmaker':'Bet type'),t('Bets'),t('Staked'),t('Profit'),t('Return')],rows);
+  }
+
+  function renderMonths(){
+    const groups=new Map();
+    S.bets.forEach(b=>{
+      const k=String(b.placedAt).slice(0,7);
+      const g=groups.get(k)||{n:0,staked:0,net:0};
+      g.n++;
+      if(!b.freeBet&&b.status!=='void')g.staked+=b.stake;
+      g.net+=profitOf(b);groups.set(k,g);
+    });
+    if(!groups.size){$('months').innerHTML='<div class="empty">'+esc(t('No bets yet. Add one under New bet.'))+'</div>';return;}
+    const label=k=>new Date(k+'-15T12:00:00').toLocaleDateString(loc(),{month:'short',year:'numeric'});
+    const rows=[...groups.entries()].sort((a,b)=>b[0].localeCompare(a[0])).slice(0,24).map(([k,g])=>[cell(label(k)),cell(String(g.n)),cell(money(g.staked)),cell(signed(g.net),g.net),cell(roiText(g.net,g.staked))]);
+    $('months').innerHTML=statTable([t('Month'),t('Bets'),t('Staked'),t('Profit'),t('Return')],rows)+'<p class="meta" style="margin:8px 0 0">'+esc(t('Bets are counted in the month you placed them. Open bets count once they settle.'))+'</p>';
+  }
+
+  function csvCell(v){
+    let t=v==null?'':String(v);
+    if(typeof v==='string'&&/^[=+\-@\t\r]/.test(t))t="'"+t;
+    return /[",\n\r;]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
+  }
+  function buildCsv(bets){
+    const head=['Date','Sport','Match','Selection','Type','Odds','Stake','Free bet','Bookmaker','Status','Cash-out received','Partial stake cashed','Partial received','Profit','Settled at','Legs','If kept'];
+    const rows=bets.slice().sort((a,b)=>String(a.placedAt).localeCompare(String(b.placedAt))).map(b=>{
+      const p=partSum(b);
+      const legs=Array.isArray(b.legs)?b.legs.map(l=>l.event+' / '+l.pick+' @ '+l.odds+(l.void?' (void)':'')).join(' | '):'';
+      return [b.placedAt,b.sport||'',b.event,b.pick,b.type==='multi'?'Multi':'Single',b.odds,b.stake,b.freeBet?'Yes':'No',b.book||'',STATUS[b.status],b.status==='cashout'?(b.returned||0):'',p.stake||'',p.got||'',b.status==='open'?'':Math.round(profitOf(b)*100)/100,b.settledAt||'',legs,b.ifHeld?STATUS[b.ifHeld]:''];
+    });
+    return '﻿'+[head].concat(rows).map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
+  }
+
+  const VIEWS=['overview','new-bet','my-bets','insights','margin'];
+  function setView(v,skipHash){
+    if(!VIEWS.includes(v))v='overview';
+    document.querySelectorAll('[data-view]').forEach(n=>{n.hidden=n.dataset.view!==v;});
+    [...$('tabs').children].forEach(b=>{if(b.dataset.go===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+    if(!skipHash){try{if(location.hash.slice(1)!==v)location.hash=v;}catch(e){}}
+    window.scrollTo(0,0);
+    if(v==='overview')renderChart();
+  }
+
+  function applySlipText(){
+    $('slipTitle').textContent=t(S.editing?'Edit bet':'New bet');
+    $('saveBet').textContent=t(S.editing?'Save changes':'Save bet');
+  }
+  function applyLanguage(){
+    const rtl=S.lang==='ar'||S.lang==='ur';
+    document.documentElement.lang=S.lang;document.documentElement.dir=rtl?'rtl':'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(n=>{n.textContent=t(n.dataset.i18n);});
+    applySlipText();
+  }
+  function changeLanguage(l){
+    S.lang=l;try{localStorage.setItem('slipbook-lang',l);}catch(e){}
+    const vals=[...$('calcInputs').querySelectorAll('input')].map(i=>i.value);
+    applyLanguage();renderLegs();renderMargin();
+    [...$('calcInputs').querySelectorAll('input')].forEach((i,n)=>{if(vals[n]!=null)i.value=vals[n];});
+    computeMargin();renderAll();$('exportMsg').textContent='';say('');
+  }
+
+  function setKind(k){
+    S.kind=k;[...$('kind').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));
+    document.querySelectorAll('.single-only').forEach(n=>{n.hidden=k==='multi';});
+    $('legsBox').hidden=k!=='multi';preview();
+  }
+  function resetSlip(){
+    S.editing=null;
+    ['event','pick','odds','stake','book'].forEach(i=>$(i).value='');
+    $('sport').value='';$('free').checked=false;$('placed').value=today();
+    S.legs=blankLegs();renderLegs();setKind('single');
+    applySlipText();$('cancelEdit').hidden=true;
+    preview();
+  }
+  function startEdit(id){
+    const b=S.bets.find(x=>x.id===id);if(!b)return;
+    S.editing=id;
+    if(b.type==='multi'&&Array.isArray(b.legs)){
+      S.legs=b.legs.map(l=>({event:l.event,pick:l.pick,odds:String(l.odds),void:!!l.void}));
+      ['event','pick','odds'].forEach(i=>$(i).value='');
+      renderLegs();setKind('multi');
+    }else{
+      $('event').value=b.event;$('pick').value=b.pick;$('odds').value=b.odds;
+      S.legs=blankLegs();renderLegs();setKind('single');
+    }
+    $('stake').value=b.stake;$('placed').value=b.placedAt;$('book').value=b.book||'';
+    $('sport').value=b.sport||'';$('free').checked=!!b.freeBet;
+    applySlipText();$('cancelEdit').hidden=false;
+    preview();say(t('Change the details, then press Save changes.'));
+    setView('new-bet');
+  }
+
+  function legsHtml(b,busy){
+    if(!Array.isArray(b.legs))return '';
+    return '<ul class="legs">'+b.legs.map((l,i)=>'<li'+(l.void?' class="is-void"':'')+'><span>'+esc(l.event)+' · '+esc(l.pick)+' @ '+Number(l.odds).toFixed(2)+'</span>'+(l.void?'<span class="pill void">'+esc(t('Void leg'))+'</span>':'')+(b.status==='open'?'<button type="button" class="linkbtn" data-a="legvoid" data-id="'+esc(b.id)+'" data-leg="'+i+'"'+(busy?' disabled':'')+'>'+esc(t(l.void?'Undo void':'Void leg'))+'</button>':'')+'</li>').join('')+'</ul>';
+  }
+
+  function monthStaked(month){
+    return S.bets.filter(b=>!b.freeBet&&b.status!=='void'&&String(b.placedAt).startsWith(month)).reduce((a,b)=>a+b.stake,0);
+  }
+
+  function renderLimit(){
+    const spent=monthStaked(today().slice(0,7));
+    const name=new Date().toLocaleString(loc(),{month:'long'});
+    const over=spent>S.limit+0.004,near=!over&&spent>=S.limit*0.8;
+    const left=over?t('Over limit')+': '+money(spent-S.limit):t('Left')+': '+money(S.limit-spent);
+    const pill=over?'<span class="pill lost">'+esc(t('Over limit'))+'</span>':near?'<span class="pill warn">'+esc(t('Nearly at limit'))+'</span>':'<span class="pill won">'+esc(t('Within limit'))+'</span>';
+    $('limit').innerHTML='<div class="limit-top"><h3>'+esc(name)+' · '+esc(t('Limit'))+'</h3><span class="meta">'+pill+'</span></div>'+
+      '<div class="limit-top"><span class="limit-amount">'+esc(t('Staked'))+': \u200e'+esc(money(spent))+' / '+esc(money(S.limit))+'</span><span class="meta num">'+esc(left)+'</span></div>'+
+      '<div class="track"><div class="fill'+(over?' over':near?' warn':'')+'" style="width:'+Math.min(100,spent/S.limit*100)+'%"></div></div>'+
+      (S.limEdit?'<div class="limit-edit"><label class="bet-sub" for="limitInput">'+esc(t('Monthly limit'))+' (€)</label><input id="limitInput" class="num cash-input" type="number" inputmode="decimal" step="1" min="1" value="'+esc(S.limit)+'"><button type="button" data-lim="save">'+esc(t('Save'))+'</button><button type="button" data-lim="cancel">'+esc(t('Cancel'))+'</button></div>':'<div><button type="button" class="linkbtn" data-lim="edit">'+esc(t('Change limit'))+'</button></div>');
+  }
+
+  function renderLegs(){
+    $('legs').innerHTML=S.legs.map((l,i)=>'<div><div class="leg-head"><h3>'+esc(t('Leg'))+' '+(i+1)+'</h3>'+(S.legs.length>2?'<button type="button" class="linkbtn" data-rm="'+i+'">'+esc(t('Remove'))+'</button>':'')+'</div><div class="fields">'+
+      '<div class="f c6"><label for="legEvent'+i+'">'+esc(t('Match'))+'</label><input id="legEvent'+i+'" autocomplete="off" data-i="'+i+'" data-k="event" value="'+esc(l.event)+'"></div>'+
+      '<div class="f c4"><label for="legPick'+i+'">'+esc(t('Your selection'))+'</label><input id="legPick'+i+'" autocomplete="off" data-i="'+i+'" data-k="pick" value="'+esc(l.pick)+'"></div>'+
+      '<div class="f c2 wide-sm"><label for="legOdds'+i+'">'+esc(t('Odds'))+'</label><input id="legOdds'+i+'" class="num" type="number" inputmode="decimal" step="0.01" min="1.01" data-i="'+i+'" data-k="odds" value="'+esc(l.odds)+'"></div></div></div>').join('');
+  }
+
+  function slipOdds(){
+    if(S.kind==='single')return parseFloat($('odds').value);
+    const o=S.legs.filter(l=>!l.void).map(l=>parseFloat(l.odds));
+    return o.every(x=>x>1)?o.reduce((a,b)=>a*b,1):NaN;
+  }
+
+  function renderMargin(){
+    const names=(S.way===3?['Home','Draw','Away']:['Side A','Side B']).map(t);
+    const box=$('calcInputs');
+    const defaults=S.way===3?['2.10','3.40','3.60']:['1.91','1.91'];
+    box.innerHTML=names.map((n,i)=>'<div class="f"><label for="m'+i+'">'+n+'</label><input id="m'+i+'" class="num" type="number" inputmode="decimal" step="0.01" min="1.01" value="'+defaults[i]+'"></div>').join('');
+    computeMargin();
+  }
+  function computeMargin(){
+    const names=(S.way===3?['Home','Draw','Away']:['Side A','Side B']).map(t);
+    const odds=names.map((_,i)=>parseFloat($('m'+i).value));
+    if(odds.some(o=>!(o>1))){$('marginOut').innerHTML='<span class="meta">'+esc(t('Enter decimal odds above 1 for every outcome.'))+'</span>';return;}
+    const imp=odds.map(o=>1/o),sum=imp.reduce((a,b)=>a+b,0);
+    $('marginOut').innerHTML='<div class="margin-big">'+pct(sum-1)+'</div><div class="meta">'+esc(t('Total'))+': '+pct(sum)+'. '+esc(t('Anything over 100% is the bookmaker’s built-in edge.'))+'</div>'+
+      '<div class="margin-table"><table><thead><tr><th>'+esc(t('Outcome'))+'</th><th>'+esc(t('Implied'))+'</th><th>'+esc(t('Without margin'))+'</th><th>'+esc(t('Fair odds'))+'</th></tr></thead><tbody>'+
+      names.map((n,i)=>'<tr><td>'+n+'</td><td>'+pct(imp[i])+'</td><td>'+pct(imp[i]/sum)+'</td><td>'+(sum/imp[i]).toFixed(2)+'</td></tr>').join('')+'</tbody></table></div>';
+  }
+
+  function preview(){
+    const o=slipOdds(),s=parseFloat($('stake').value);
+    $('prevOddsWrap').hidden=S.kind!=='multi';
+    $('prevOdds').textContent=o>1?o.toFixed(2):'–';
+    const lm=$('limitMsg'),month=($('placed').value||'').slice(0,7),isNow=month===today().slice(0,7);
+    const was=S.editing?S.bets.find(x=>x.id===S.editing):null;
+    const counted=was&&!was.freeBet&&was.status!=='void'&&String(was.placedAt).startsWith(month)?was.stake:0;
+    const after=s>0&&isNow&&!$('free').checked?monthStaked(month)-counted+s:0;
+    if(after>S.limit+0.004){lm.hidden=false;lm.className='limit-msg over';lm.textContent=t('This bet would put you over your limit by')+' '+money(after-S.limit);}
+    else if(after>=S.limit*0.8){lm.hidden=false;lm.className='limit-msg warn';lm.textContent=t('Left of your limit after this bet')+': '+money(S.limit-after);}
+    else{lm.hidden=true;lm.textContent='';}
+    $('prevProb').textContent=o>1?pct(1/o):'–';
+    $('prevRet').textContent=o>1&&s>0?money($('free').checked?(o-1)*s:o*s):'–';
+  }
+  function say(t,err){const m=$('formMsg');m.textContent=t;m.className='status-msg'+(err?' err':'');}
+  function writeError(e){
+    if(e&&e.code==='quota_exceeded')return 'Storage is full. Delete some old bets, then try again.';
+    if(e&&e.code==='invalid_argument')return 'This account can only view the page, so the bet was not saved.';
+    return 'The change did not save. Check your connection and try again.';
+  }
+
+  $('betForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    if(!S.col){say('Still loading. Try again in a moment.',true);return;}
+    const stake=parseFloat($('stake').value),placedAt=$('placed').value;
+    let event,pick,odds,extra={};
+    if(S.kind==='multi'){
+      const legs=S.legs.map(l=>({event:l.event.trim(),pick:l.pick.trim(),odds:parseFloat(l.odds),void:!!l.void}));
+      if(legs.some(l=>!l.event||!l.pick)){say(t('Fill in the match and selection.'),true);return;}
+      if(legs.some(l=>!(l.odds>1))){say(t('Odds must be above 1, for example 1.85.'),true);return;}
+      odds=multiOdds(legs);event='Multi: '+legs.length+' legs';pick=legs.map(l=>l.pick).join(', ');extra={type:'multi',legs};
+    }else{
+      event=$('event').value.trim();pick=$('pick').value.trim();odds=parseFloat($('odds').value);
+      if(!event||!pick){say(t('Fill in the match and selection.'),true);return;}
+      if(!(odds>1)){say(t('Odds must be above 1, for example 1.85.'),true);return;}
+    }
+    if(!(stake>0)){say(t('Stake must be more than zero.'),true);return;}
+    if(!placedAt){say(t('Choose a date.'),true);return;}
+    const editing=S.editing?S.bets.find(x=>x.id===S.editing):null;
+    if(editing&&partSum(editing).stake>=stake){say(t('Stake must be more than the part already cashed out.'),true);return;}
+    const fields=Object.assign({event,pick,odds,stake,placedAt,sport:$('sport').value||null,freeBet:$('free').checked,book:$('book').value.trim()||null,type:null,legs:null},extra);
+    const btn=$('saveBet');btn.disabled=true;
+    try{
+      if(editing){await S.col.doc(editing.id).update(fields);resetSlip();say('');setView('my-bets');}
+      else{await S.col.doc().set(Object.assign(fields,{status:'open',createdAt:Date.now()}));resetSlip();say(t('Bet saved.'));}
+    }catch(err){say(writeError(err),true);}
+    btn.disabled=false;
+  });
+  ['odds','stake','placed'].forEach(i=>$(i).addEventListener('input',preview));
+  $('free').addEventListener('change',preview);
+  $('limit').addEventListener('click',async e=>{
+    const a=e.target.dataset.lim;if(!a)return;
+    if(a==='edit'){S.limEdit=true;renderLimit();const i=$('limitInput');if(i)i.focus();return;}
+    if(a==='cancel'){S.limEdit=false;renderLimit();return;}
+    const v=parseFloat($('limitInput').value);
+    if(!(v>0)){S.pageMsg=t('Enter valid amounts.');renderNotice();return;}
+    try{
+      if(!S.col)throw new Error('not ready');
+      await S.col.doc('_settings').set({monthlyLimit:v});
+      S.limit=v;S.limEdit=false;S.pageMsg=null;renderAll();
+    }catch(err){S.pageMsg=writeError(err);renderNotice();}
+  });
+  $('drill').addEventListener('click',e=>{
+    const f=e.target.dataset.df;
+    if(f){S.drillF=f;renderDrill();return;}
+    if(e.target.dataset.dclose){S.drill=null;renderChart();}
+  });
+  $('lang').addEventListener('change',e=>changeLanguage(e.target.value));
+  $('chartView').addEventListener('click',e=>{
+    const c=e.target.dataset.c;if(!c)return;
+    S.chart=c;try{localStorage.setItem('slipbook-chart',c);}catch(err){}
+    renderChart();
+  });
+  $('cancelEdit').addEventListener('click',()=>{resetSlip();say('');setView('my-bets');});
+  $('tabs').addEventListener('click',e=>{const v=e.target.dataset.go;if(v)setView(v);});
+  window.addEventListener('hashchange',()=>setView(location.hash.slice(1),true));
+  $('bdBy').addEventListener('click',e=>{const b=e.target.dataset.b;if(b){S.bd=b;renderBreakdown();}});
+  $('exportBtn').addEventListener('click',async()=>{
+    const m=$('exportMsg'),real=S.bets.filter(b=>!b.example);
+    if(!real.length){m.textContent=t('No bets of your own to save yet.');return;}
+    try{await S.dl.save({filename:'slipbook-bets-'+today()+'.csv',data:buildCsv(real)});m.textContent=t('Spreadsheet saved.');}
+    catch(e){m.textContent=e&&e.code==='declined'?t('Download cancelled.'):e&&e.code==='rate_limited'?'A download is already waiting for your answer.':'The spreadsheet could not be saved here.';}
+  });
+
+  $('betFilter').addEventListener('click',e=>{
+    const f=e.target.dataset.f;if(!f)return;
+    S.filter=f;[...$('betFilter').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===f));renderBets();
+  });
+  $('kind').addEventListener('click',e=>{const k=e.target.dataset.k;if(k)setKind(k);});
+  $('legs').addEventListener('input',e=>{
+    const d=e.target.dataset;if(d.k==null)return;
+    S.legs[+d.i][d.k]=e.target.value;preview();
+  });
+  $('legs').addEventListener('click',e=>{
+    const r=e.target.dataset.rm;if(r==null)return;
+    S.legs.splice(+r,1);renderLegs();preview();
+  });
+  $('addLeg').addEventListener('click',()=>{S.legs.push({event:'',pick:'',odds:''});renderLegs();preview();});
+  $('way').addEventListener('click',e=>{
+    const w=+e.target.dataset.w;if(!w)return;
+    S.way=w;[...$('way').children].forEach(b=>b.setAttribute('aria-pressed',+b.dataset.w===w));renderMargin();
+  });
+  $('calcInputs').addEventListener('input',computeMargin);
+
+  $('pageNotice').addEventListener('click',async e=>{
+    if(e.target.id!=='clearEx'||!S.col)return;
+    e.target.disabled=true;
+    try{for(const b of S.bets.filter(x=>x.example))await S.col.doc(b.id).delete();}
+    catch(err){S.pageMsg=writeError(err);renderNotice();}
+  });
+
+  $('bets').addEventListener('click',async e=>{
+    const a=e.target.dataset.a,id=e.target.dataset.id;if(!a)return;
+    if(a==='ask'){S.confirm=id;renderBets();return;}
+    if(a==='keep'){S.confirm=null;renderBets();return;}
+    if(a==='cash'){S.cashing=id;S.confirm=null;renderBets();const i=$('cashAmt');if(i)i.focus();return;}
+    if(a==='cashcancel'){S.cashing=null;renderBets();return;}
+    if(a==='edit'){startEdit(id);return;}
+    if(a==='partial'){S.partial=id;S.cashing=null;S.confirm=null;renderBets();const i=$('partStake');if(i)i.focus();return;}
+    if(a==='partcancel'){S.partial=null;renderBets();return;}
+    let part=null;
+    if(a==='partsave'){
+      const b=S.bets.find(x=>x.id===id),ps=parseFloat($('partStake').value),pg=parseFloat($('partGot').value);
+      if(!(ps>0)||!(ps<remaining(b))||!(pg>=0)){S.pageMsg=t('Enter valid amounts.');renderNotice();return;}
+      part=(Array.isArray(b.partials)?b.partials:[]).concat([{stake:ps,got:pg}]);
+    }
+    let amt=null;
+    if(a==='cashsave'){
+      amt=parseFloat($('cashAmt').value);
+      if(!(amt>=0)){S.pageMsg=t('Enter valid amounts.');renderNotice();return;}
+    }
+    if(!S.col||S.busy.has(id))return;
+    S.busy.add(id);renderBets();
+    try{
+      const ref=S.col.doc(id);
+      if(a==='del'){await ref.delete();S.confirm=null;}
+      else if(a==='open')await ref.update({status:'open',settledAt:null,returned:null,ifHeld:null});
+      else if(a==='held')await ref.update({ifHeld:e.target.dataset.r});
+      else if(a==='heldclear')await ref.update({ifHeld:null});
+      else if(a==='partsave'){await ref.update({partials:part});S.partial=null;}
+      else if(a==='partundo'){const b=S.bets.find(x=>x.id===id);await ref.update({partials:b.partials.slice(0,-1)});}
+      else if(a==='cashsave'){await ref.update({status:'cashout',returned:amt,settledAt:new Date().toISOString()});S.cashing=null;}
+      else if(a==='legvoid'){
+        const b=S.bets.find(x=>x.id===id),n=+e.target.dataset.leg;
+        const legs=b.legs.map((l,i)=>Object.assign({},l,i===n?{void:!l.void}:{}));
+        await ref.update({legs,odds:multiOdds(legs)});
+      }
+      else await ref.update({status:a,settledAt:new Date().toISOString()});
+      S.pageMsg=null;
+    }catch(err){S.pageMsg=writeError(err);}
+    S.busy.delete(id);renderNotice();renderBets();
+  });
+
+  function renderAll(){renderNotice();renderLimit();renderSummary();renderBets();renderBreakdown();renderMonths();preview();}
+
+  function localCollection(){
+    const KEY='slipbook-data-v1';
+    const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}};
+    const write=o=>{try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){const err=new Error('Could not save');err.code='quota_exceeded';throw err;}};
+    let listener=null;
+    const emit=()=>{if(!listener)return;const o=read();listener({docs:Object.keys(o).map(id=>({id,exists:true,data:()=>o[id]})),metadata:{fromCache:false,hasPendingWrites:false}});};
+    window.addEventListener('storage',e=>{if(e.key===KEY)emit();});
+    return {
+      doc(id){
+        const docId=id||('b'+Date.now().toString(36)+Math.random().toString(36).slice(2,8));
+        return {id:docId,
+          async set(d){const o=read();o[docId]=d;write(o);emit();},
+          async update(d){const o=read();o[docId]=Object.assign(o[docId]||{},d);write(o);emit();},
+          async delete(){const o=read();delete o[docId];write(o);emit();}};
+      },
+      onSnapshot(next){listener=next;setTimeout(emit,0);return ()=>{listener=null;};}
+    };
+  }
+  const browserDownloads={save:async({filename,data})=>{
+    const url=URL.createObjectURL(new Blob([data],{type:'text/csv;charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    return {status:'saved'};
+  }};
+
+  async function boot(){
+    $('placed').value=today();
+    $('lang').innerHTML=I18N.langs.map(x=>'<option value="'+x[0]+'">'+esc(x[1])+'</option>').join('');$('lang').value=S.lang;applyLanguage();
+    setView(location.hash.slice(1),true);renderLegs();renderMargin();renderAll();
+    if(window.ResizeObserver){let w=0;new ResizeObserver(en=>{const n=Math.round(en[0].contentRect.width);if(n!==w){w=n;renderChart();}}).observe($('chart'));}
+    try{S.dl=window.claude?await window.claude.use('downloads'):browserDownloads;}catch(e){S.dl=null;}
+    $('exportBtn').hidden=!S.dl;
+    let db=null,user=null;
+    try{[db,user]=await Promise.all([window.claude?window.claude.use('db'):null,window.claude?window.claude.use('user'):null]);}catch(e){}
+    let uid=null;
+    try{uid=user?await user.id():null;}catch(e){}
+    const local=!db||!uid;
+    S.col=local?localCollection():db.collection('data/users/'+uid);
+    if(local){const tag=document.querySelector('.head-end [data-i18n]');tag.dataset.i18n='Euros and decimal odds. Your bets are saved on this device only.';applyLanguage();}
+    const timer=setTimeout(()=>{if(!S.ready){S.pageMsg='Your bets can’t be reached yet. Check your connection.';S.ready=true;renderAll();}},10000);
+    S.col.onSnapshot(snap=>{
+      S.bets=snap.docs.map(d=>Object.assign({id:d.id},d.data())).filter(b=>typeof b.odds==='number'&&typeof b.stake==='number');
+      const st=snap.docs.find(d=>d.id==='_settings');
+      if(st&&st.data().monthlyLimit>0)S.limit=st.data().monthlyLimit;
+      if(!snap.metadata.fromCache){clearTimeout(timer);if(S.ready&&S.pageMsg&&/can’t be reached/.test(S.pageMsg))S.pageMsg=null;}
+      S.ready=true;renderAll();
+    },()=>{clearTimeout(timer);S.ready=true;S.pageMsg='Your bets could not be loaded. Reload the page to try again.';renderAll();});
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
