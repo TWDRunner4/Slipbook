@@ -1,5 +1,5 @@
 // Slipbook offline support. Change VERSION whenever you upload a new index.html.
-const VERSION = 'slipbook-v11';
+const VERSION = 'slipbook-v12';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './favicon-32.png'];
 
 self.addEventListener('install', (event) => {
@@ -18,12 +18,15 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // Leave app downloads to the browser.
+  if (url.pathname.endsWith('.apk')) return;
 
   // The app page: try the network first so updates arrive, fall back to the saved copy offline.
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
         .then((res) => {
+          if (!res.ok || !(res.headers.get('content-type') || '').includes('text/html')) return res;
           const copy = res.clone();
           caches.open(VERSION).then((cache) => cache.put('./index.html', copy));
           return res;
