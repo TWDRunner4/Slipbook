@@ -14,11 +14,19 @@ A simple tracker for your own bets. It does not take bets or give tips.
 
 ## Your data
 
-There are no accounts. Bets are saved in your own browser with `localStorage`, so nobody else can see them. They do not move between devices, and clearing your browser data deletes them. Download a spreadsheet regularly as a backup.
+There are no accounts. Bets are saved in your own browser with `localStorage`, so nobody else can see them. They do not move between devices, and clearing your browser data deletes them. Use **Settings > Backup** to download a spreadsheet, and restore it on a new device.
+
+## Install it as an app
+
+Open the site link on your phone, then:
+
+- **iPhone:** in Safari, tap Share, then **Add to Home Screen**.
+- **Android:** in Chrome, open the menu and tap **Install app** or **Add to Home screen**.
+
+It then opens from its own icon, full screen, and works offline.
 
 ## Run it
 
-Open `index.html` in a browser, or host the repository with GitHub Pages.
+Host the repository with GitHub Pages. Opening `index.html` directly also works, but it can't be installed that way.
 
-Please bet responsibly. If gambling stops being fun, seek support from a gambling help service in your country.
-
+Slipbook is for adults (18+). Please bet responsibly. Helplines for France, the UK, the Netherlands and Romania are listed in the app under **Settings**.
